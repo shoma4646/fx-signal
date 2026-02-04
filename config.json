@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "updatedAt": "2026-02-04T10:06:00+09:00",
+  "updatedBy": "stella",
+  "note": "初期設定 - ETHでグリッドトレード開始",
+  
+  "bot": {
+    "enabled": true,
+    "checkIntervalSec": 30,
+    "dryRun": true
+  },
+  
+  "discord": {
+    "enabled": true,
+    "channelId": "1468225130088894567",
+    "notifyOnTrade": true,
+    "notifyOnError": true,
+    "dailyReportHour": 9
+  },
+  
+  "pairs": {
+    "ETH_JPY": {
+      "enabled": true,
+      "strategy": "grid",
+      "gridSettings": {
+        "gridCount": 3,
+        "gridSpacingPercent": 1.5,
+        "orderSize": 0.01,
+        "maxPosition": 0.05,
+        "takeProfitPercent": 1.5
+      }
+    },
+    "BTC_JPY": {
+      "enabled": false,
+      "strategy": "grid",
+      "gridSettings": {
+        "gridCount": 3,
+        "gridSpacingPercent": 1.0,
+        "orderSize": 0.001,
+        "maxPosition": 0.005,
+        "takeProfitPercent": 1.0
+      },
+      "note": "資金追加後に有効化"
+    }
+  }
+}
