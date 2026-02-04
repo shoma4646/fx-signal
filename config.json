@@ -1,8 +1,8 @@
 {
-  "version": 1,
-  "updatedAt": "2026-02-04T10:06:00+09:00",
+  "version": 2,
+  "updatedAt": "2026-02-04T11:42:00+09:00",
   "updatedBy": "stella",
-  "note": "DRY RUN - ETH+BTC両方でテスト中",
+  "note": "DRY RUN - 広め/狭め2パターン並行テスト",
   
   "bot": {
     "enabled": true,
@@ -18,10 +18,11 @@
     "dailyReportHour": 9
   },
   
-  "pairs": {
-    "ETH_JPY": {
+  "strategies": {
+    "ETH_WIDE": {
+      "pair": "ETH_JPY",
       "enabled": true,
-      "strategy": "grid",
+      "note": "広めグリッド - 安定重視",
       "gridSettings": {
         "gridCount": 3,
         "gridSpacingPercent": 1.5,
@@ -30,17 +31,41 @@
         "takeProfitPercent": 1.5
       }
     },
-    "BTC_JPY": {
+    "ETH_NARROW": {
+      "pair": "ETH_JPY",
       "enabled": true,
-      "strategy": "grid",
+      "note": "狭めグリッド - 回転重視",
+      "gridSettings": {
+        "gridCount": 5,
+        "gridSpacingPercent": 0.5,
+        "orderSize": 0.01,
+        "maxPosition": 0.05,
+        "takeProfitPercent": 0.5
+      }
+    },
+    "BTC_WIDE": {
+      "pair": "BTC_JPY",
+      "enabled": true,
+      "note": "広めグリッド - 安定重視",
       "gridSettings": {
         "gridCount": 3,
         "gridSpacingPercent": 1.0,
         "orderSize": 0.001,
         "maxPosition": 0.005,
         "takeProfitPercent": 1.0
-      },
-      "note": "資金追加後に有効化"
+      }
+    },
+    "BTC_NARROW": {
+      "pair": "BTC_JPY",
+      "enabled": true,
+      "note": "狭めグリッド - 回転重視",
+      "gridSettings": {
+        "gridCount": 5,
+        "gridSpacingPercent": 0.3,
+        "orderSize": 0.001,
+        "maxPosition": 0.005,
+        "takeProfitPercent": 0.3
+      }
     }
   }
 }

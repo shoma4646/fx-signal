@@ -6,8 +6,9 @@ const path = require('path');
 const STATE_FILE = path.join(__dirname, '../data/grid-state.json');
 
 class GridStrategy {
-  constructor(pair, settings, dryRun = true) {
-    this.pair = pair;
+  constructor(name, pair, settings, dryRun = true) {
+    this.name = name;      // 戦略名 (例: ETH_WIDE)
+    this.pair = pair;      // 通貨ペア (例: ETH_JPY)
     this.settings = settings;
     this.dryRun = dryRun;
     this.state = this.loadState();
@@ -16,7 +17,7 @@ class GridStrategy {
   loadState() {
     if (fs.existsSync(STATE_FILE)) {
       const allState = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
-      return allState[this.pair] || this.defaultState();
+      return allState[this.name] || this.defaultState();
     }
     return this.defaultState();
   }
@@ -38,8 +39,9 @@ class GridStrategy {
     if (fs.existsSync(STATE_FILE)) {
       allState = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
     }
-    allState[this.pair] = {
+    allState[this.name] = {
       ...this.state,
+      pair: this.pair,
       lastUpdate: new Date().toISOString()
     };
     fs.writeFileSync(STATE_FILE, JSON.stringify(allState, null, 2));
@@ -74,11 +76,10 @@ class GridStrategy {
       });
     }
 
-    const symbol = this.pair.replace('_JPY', '');
-    console.log(`[${symbol}] 📐 グリッド初期化 基準価格: ¥${currentPrice.toLocaleString()}`);
+    console.log(`[${this.name}] 📐 グリッド初期化 基準価格: ¥${currentPrice.toLocaleString()} (間隔: ${gridSpacingPercent}%)`);
     this.state.gridLevels.forEach(g => {
       const emoji = g.type === 'BUY' ? '🟢' : '🔴';
-      console.log(`[${symbol}]    ${emoji} ${g.type} Lv${g.level}: ¥${g.price.toLocaleString()}`);
+      console.log(`[${this.name}]    ${emoji} ${g.type} Lv${g.level}: ¥${g.price.toLocaleString()}`);
     });
 
     this.saveState();
@@ -96,7 +97,7 @@ class GridStrategy {
         return { success: true, price: currentPrice, action: 'initialized' };
       }
 
-      console.log(`\n[${symbol}] 現在: ¥${currentPrice.toLocaleString()} | 基準: ¥${this.state.basePrice.toLocaleString()} | ポジ: ${this.state.position}`);
+      console.log(`[${this.name}] 現在: ¥${currentPrice.toLocaleString()} | 基準: ¥${this.state.basePrice.toLocaleString()} | ポジ: ${this.state.position}`);
 
       // 買いグリッドチェック
       const buyLevels = this.state.gridLevels
@@ -142,14 +143,13 @@ class GridStrategy {
   }
 
   async executeBuy(level, currentPrice) {
-    const symbol = this.pair.replace('_JPY', '');
     const size = this.settings.orderSize;
     const price = currentPrice; // 成行相当
 
-    console.log(`[${symbol}] 🟢 買いシグナル Lv${level.level} @ ¥${price.toLocaleString()}`);
+    console.log(`[${this.name}] 🟢 買いシグナル Lv${level.level} @ ¥${price.toLocaleString()}`);
 
     if (this.dryRun) {
-      console.log(`[${symbol}] (DRY RUN)`);
+      console.log(`[${this.name}] (DRY RUN)`);
     } else {
       await bitflyer.sendOrder({
         product_code: this.pair,
@@ -171,14 +171,13 @@ class GridStrategy {
   }
 
   async executeSell(level, currentPrice) {
-    const symbol = this.pair.replace('_JPY', '');
     const size = Math.min(this.settings.orderSize, this.state.position);
     const profit = (currentPrice - this.state.avgBuyPrice) * size;
 
-    console.log(`[${symbol}] 🔴 売りシグナル Lv${level.level} @ ¥${currentPrice.toLocaleString()} (損益: ¥${profit.toFixed(0)})`);
+    console.log(`[${this.name}] 🔴 売りシグナル Lv${level.level} @ ¥${currentPrice.toLocaleString()} (損益: ¥${profit.toFixed(0)})`);
 
     if (this.dryRun) {
-      console.log(`[${symbol}] (DRY RUN)`);
+      console.log(`[${this.name}] (DRY RUN)`);
     } else {
       await bitflyer.sendOrder({
         product_code: this.pair,
@@ -202,14 +201,13 @@ class GridStrategy {
   }
 
   async executeTakeProfit(currentPrice) {
-    const symbol = this.pair.replace('_JPY', '');
     const size = this.state.position;
     const profit = (currentPrice - this.state.avgBuyPrice) * size;
 
-    console.log(`[${symbol}] 💰 利確！ @ ¥${currentPrice.toLocaleString()} (損益: ¥${profit.toFixed(0)})`);
+    console.log(`[${this.name}] 💰 利確！ @ ¥${currentPrice.toLocaleString()} (損益: ¥${profit.toFixed(0)})`);
 
     if (this.dryRun) {
-      console.log(`[${symbol}] (DRY RUN)`);
+      console.log(`[${this.name}] (DRY RUN)`);
     } else {
       await bitflyer.sendOrder({
         product_code: this.pair,
@@ -228,7 +226,7 @@ class GridStrategy {
     this.state.gridLevels = [];
 
     await notify.notifyTrade(this.pair, 'SELL', currentPrice, size, profit);
-    await notify.sendDiscord(`💰 **${symbol} 利確完了！** グリッドをリセットします`);
+    await notify.sendDiscord(`💰 **${this.name} 利確完了！** グリッドをリセットします`);
   }
 
   // グリッドを手動リセット
@@ -240,6 +238,7 @@ class GridStrategy {
 
   getStats() {
     return {
+      name: this.name,
       pair: this.pair,
       basePrice: this.state.basePrice,
       position: this.state.position,

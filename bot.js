@@ -33,14 +33,33 @@ class CryptoBot {
   initStrategies() {
     this.strategies = {};
     
-    for (const [pair, settings] of Object.entries(this.config.pairs)) {
-      if (!settings.enabled) {
-        console.log(`[${pair}] 無効 - スキップ`);
-        continue;
-      }
+    // 新形式: strategies
+    if (this.config.strategies) {
+      for (const [name, settings] of Object.entries(this.config.strategies)) {
+        if (!settings.enabled) {
+          console.log(`[${name}] 無効 - スキップ`);
+          continue;
+        }
 
-      if (settings.strategy === 'grid') {
+        this.strategies[name] = new GridStrategy(
+          name,
+          settings.pair,
+          settings.gridSettings,
+          this.config.bot.dryRun
+        );
+        console.log(`[${name}] ${settings.note || 'グリッド戦略を初期化'}`);
+      }
+    }
+    // 旧形式: pairs (後方互換)
+    else if (this.config.pairs) {
+      for (const [pair, settings] of Object.entries(this.config.pairs)) {
+        if (!settings.enabled) {
+          console.log(`[${pair}] 無効 - スキップ`);
+          continue;
+        }
+
         this.strategies[pair] = new GridStrategy(
+          pair,
           pair,
           settings.gridSettings,
           this.config.bot.dryRun
@@ -70,9 +89,9 @@ class CryptoBot {
 
     // 戦略状態
     console.log('\n📊 戦略状態:');
-    for (const [pair, strategy] of Object.entries(this.strategies)) {
+    for (const [name, strategy] of Object.entries(this.strategies)) {
       const stats = strategy.getStats();
-      console.log(`   [${pair}]`);
+      console.log(`   [${name}] (${stats.pair})`);
       console.log(`      ポジション: ${stats.position}`);
       console.log(`      累計損益: ¥${stats.totalProfit.toLocaleString()}`);
       console.log(`      取引回数: ${stats.tradeCount}`);
