@@ -119,6 +119,17 @@ class CryptoBot {
     if (!safety.canTrade()) {
       const status = safety.getStatus();
       console.log(`⏸️ Bot一時停止中: ${status.pauseReason}`);
+      
+      // 自動再開チェック
+      const pairs = Object.values(this.strategies).map(s => s.pair);
+      const uniquePairs = [...new Set(pairs)];
+      const resumeCheck = await safety.checkAutoResume(uniquePairs, 1.0);
+      
+      if (resumeCheck.resumed) {
+        console.log(`✅ 自動再開！`);
+      } else if (resumeCheck.reason === 'still_volatile') {
+        console.log(`⏳ まだボラ高め: ${resumeCheck.pair} ${resumeCheck.volatility?.toFixed(2)}%`);
+      }
       return;
     }
 
