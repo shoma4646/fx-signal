@@ -23,11 +23,12 @@ class GridStrategy {
 
   defaultState() {
     return {
-      gridOrders: [],      // 設置中のグリッド注文
-      position: 0,         // 現在のポジション量
-      avgBuyPrice: 0,      // 平均取得価格
-      totalProfit: 0,      // 累計利益
-      tradeCount: 0,       // 取引回数
+      basePrice: null,           // グリッドの基準価格（固定）
+      gridLevels: [],            // グリッドレベル情報
+      position: 0,               // 現在のポジション量
+      avgBuyPrice: 0,            // 平均取得価格
+      totalProfit: 0,            // 累計利益
+      tradeCount: 0,             // 取引回数
       lastUpdate: null
     };
   }
@@ -44,30 +45,89 @@ class GridStrategy {
     fs.writeFileSync(STATE_FILE, JSON.stringify(allState, null, 2));
   }
 
+  // グリッドを初期化（基準価格を固定）
+  initializeGrid(currentPrice) {
+    const { gridCount, gridSpacingPercent } = this.settings;
+    
+    this.state.basePrice = currentPrice;
+    this.state.gridLevels = [];
+
+    // 買いグリッド（下方向）
+    for (let i = 1; i <= gridCount; i++) {
+      const price = Math.floor(currentPrice * (1 - gridSpacingPercent * i / 100));
+      this.state.gridLevels.push({
+        type: 'BUY',
+        level: i,
+        price: price,
+        triggered: false
+      });
+    }
+
+    // 売りグリッド（上方向）
+    for (let i = 1; i <= gridCount; i++) {
+      const price = Math.floor(currentPrice * (1 + gridSpacingPercent * i / 100));
+      this.state.gridLevels.push({
+        type: 'SELL',
+        level: i,
+        price: price,
+        triggered: false
+      });
+    }
+
+    const symbol = this.pair.replace('_JPY', '');
+    console.log(`[${symbol}] 📐 グリッド初期化 基準価格: ¥${currentPrice.toLocaleString()}`);
+    this.state.gridLevels.forEach(g => {
+      const emoji = g.type === 'BUY' ? '🟢' : '🔴';
+      console.log(`[${symbol}]    ${emoji} ${g.type} Lv${g.level}: ¥${g.price.toLocaleString()}`);
+    });
+
+    this.saveState();
+  }
+
   async execute() {
     try {
       const ticker = await bitflyer.getTicker(this.pair);
       const currentPrice = ticker.ltp;
       const symbol = this.pair.replace('_JPY', '');
 
-      console.log(`\n[${symbol}] 現在価格: ¥${currentPrice.toLocaleString()}`);
-      console.log(`[${symbol}] ポジション: ${this.state.position} (平均: ¥${this.state.avgBuyPrice.toLocaleString()})`);
+      // 初回 or グリッド未設定なら初期化
+      if (!this.state.basePrice || this.state.gridLevels.length === 0) {
+        this.initializeGrid(currentPrice);
+        return { success: true, price: currentPrice, action: 'initialized' };
+      }
 
-      // グリッドレベルを計算
-      const gridLevels = this.calculateGridLevels(currentPrice);
-      
-      // 買いシグナルチェック
-      for (const level of gridLevels.buyLevels) {
-        if (currentPrice <= level.price && this.state.position < this.settings.maxPosition) {
-          await this.placeBuyOrder(level.price, this.settings.orderSize);
+      console.log(`\n[${symbol}] 現在: ¥${currentPrice.toLocaleString()} | 基準: ¥${this.state.basePrice.toLocaleString()} | ポジ: ${this.state.position}`);
+
+      // 買いグリッドチェック
+      const buyLevels = this.state.gridLevels
+        .filter(g => g.type === 'BUY' && !g.triggered)
+        .sort((a, b) => b.price - a.price); // 高い方から
+
+      for (const level of buyLevels) {
+        if (currentPrice <= level.price) {
+          if (this.state.position < this.settings.maxPosition) {
+            await this.executeBuy(level, currentPrice);
+          }
         }
       }
 
-      // 売りシグナルチェック（利確）
+      // 売りグリッドチェック（ポジションがある時のみ）
       if (this.state.position > 0) {
-        const targetPrice = this.state.avgBuyPrice * (1 + this.settings.takeProfitPercent / 100);
-        if (currentPrice >= targetPrice) {
-          await this.placeSellOrder(currentPrice, this.state.position);
+        const sellLevels = this.state.gridLevels
+          .filter(g => g.type === 'SELL' && !g.triggered)
+          .sort((a, b) => a.price - b.price); // 安い方から
+
+        for (const level of sellLevels) {
+          if (currentPrice >= level.price) {
+            await this.executeSell(level, currentPrice);
+            break; // 一度に1つだけ売る
+          }
+        }
+
+        // 利確チェック（グリッド外でも平均+X%で利確）
+        const takeProfitPrice = this.state.avgBuyPrice * (1 + this.settings.takeProfitPercent / 100);
+        if (currentPrice >= takeProfitPrice && this.state.position > 0) {
+          await this.executeTakeProfit(currentPrice);
         }
       }
 
@@ -81,99 +141,112 @@ class GridStrategy {
     }
   }
 
-  calculateGridLevels(currentPrice) {
-    const { gridCount, gridSpacingPercent } = this.settings;
-    const spacing = currentPrice * (gridSpacingPercent / 100);
-
-    const buyLevels = [];
-    const sellLevels = [];
-
-    for (let i = 1; i <= gridCount; i++) {
-      buyLevels.push({
-        level: i,
-        price: Math.floor(currentPrice - spacing * i)
-      });
-      sellLevels.push({
-        level: i,
-        price: Math.floor(currentPrice + spacing * i)
-      });
-    }
-
-    return { buyLevels, sellLevels };
-  }
-
-  async placeBuyOrder(price, size) {
+  async executeBuy(level, currentPrice) {
     const symbol = this.pair.replace('_JPY', '');
-    console.log(`[${symbol}] 🟢 買い注文: ${size} @ ¥${price.toLocaleString()}`);
+    const size = this.settings.orderSize;
+    const price = currentPrice; // 成行相当
+
+    console.log(`[${symbol}] 🟢 買いシグナル Lv${level.level} @ ¥${price.toLocaleString()}`);
 
     if (this.dryRun) {
-      console.log(`[${symbol}] (DRY RUN - 実際の注文はスキップ)`);
-      // シミュレーション
-      const newPosition = this.state.position + size;
-      this.state.avgBuyPrice = 
-        (this.state.avgBuyPrice * this.state.position + price * size) / newPosition;
-      this.state.position = newPosition;
-      this.state.tradeCount++;
-      
-      await notify.notifyTrade(this.pair, 'BUY', price, size);
-      return;
+      console.log(`[${symbol}] (DRY RUN)`);
+    } else {
+      await bitflyer.sendOrder({
+        product_code: this.pair,
+        child_order_type: 'MARKET',
+        side: 'BUY',
+        size: size
+      });
     }
 
-    // 実際の注文
-    const result = await bitflyer.sendOrder({
-      product_code: this.pair,
-      child_order_type: 'LIMIT',
-      side: 'BUY',
-      price: price,
-      size: size
-    });
+    // 状態更新
+    const newPosition = this.state.position + size;
+    this.state.avgBuyPrice = 
+      (this.state.avgBuyPrice * this.state.position + price * size) / newPosition;
+    this.state.position = newPosition;
+    this.state.tradeCount++;
+    level.triggered = true;
 
-    console.log(`[${symbol}] 注文ID: ${result.child_order_acceptance_id}`);
     await notify.notifyTrade(this.pair, 'BUY', price, size);
   }
 
-  async placeSellOrder(price, size) {
+  async executeSell(level, currentPrice) {
     const symbol = this.pair.replace('_JPY', '');
-    const profit = (price - this.state.avgBuyPrice) * size;
-    
-    console.log(`[${symbol}] 🔴 売り注文: ${size} @ ¥${price.toLocaleString()}`);
-    console.log(`[${symbol}] 💰 予想利益: ¥${profit.toLocaleString()}`);
+    const size = Math.min(this.settings.orderSize, this.state.position);
+    const profit = (currentPrice - this.state.avgBuyPrice) * size;
+
+    console.log(`[${symbol}] 🔴 売りシグナル Lv${level.level} @ ¥${currentPrice.toLocaleString()} (損益: ¥${profit.toFixed(0)})`);
 
     if (this.dryRun) {
-      console.log(`[${symbol}] (DRY RUN - 実際の注文はスキップ)`);
-      this.state.position = 0;
-      this.state.avgBuyPrice = 0;
-      this.state.totalProfit += profit;
-      this.state.tradeCount++;
-      
-      await notify.notifyTrade(this.pair, 'SELL', price, size, profit);
-      return;
+      console.log(`[${symbol}] (DRY RUN)`);
+    } else {
+      await bitflyer.sendOrder({
+        product_code: this.pair,
+        child_order_type: 'MARKET',
+        side: 'SELL',
+        size: size
+      });
     }
 
-    // 実際の注文（成行）
-    const result = await bitflyer.sendOrder({
-      product_code: this.pair,
-      child_order_type: 'MARKET',
-      side: 'SELL',
-      size: size
-    });
-
+    // 状態更新
+    this.state.position -= size;
+    if (this.state.position <= 0) {
+      this.state.position = 0;
+      this.state.avgBuyPrice = 0;
+    }
     this.state.totalProfit += profit;
+    this.state.tradeCount++;
+    level.triggered = true;
+
+    await notify.notifyTrade(this.pair, 'SELL', currentPrice, size, profit);
+  }
+
+  async executeTakeProfit(currentPrice) {
+    const symbol = this.pair.replace('_JPY', '');
+    const size = this.state.position;
+    const profit = (currentPrice - this.state.avgBuyPrice) * size;
+
+    console.log(`[${symbol}] 💰 利確！ @ ¥${currentPrice.toLocaleString()} (損益: ¥${profit.toFixed(0)})`);
+
+    if (this.dryRun) {
+      console.log(`[${symbol}] (DRY RUN)`);
+    } else {
+      await bitflyer.sendOrder({
+        product_code: this.pair,
+        child_order_type: 'MARKET',
+        side: 'SELL',
+        size: size
+      });
+    }
+
+    // 状態更新 & グリッドリセット
+    this.state.totalProfit += profit;
+    this.state.tradeCount++;
     this.state.position = 0;
     this.state.avgBuyPrice = 0;
-    this.state.tradeCount++;
+    this.state.basePrice = null; // 次回グリッド再初期化
+    this.state.gridLevels = [];
 
-    console.log(`[${symbol}] 注文ID: ${result.child_order_acceptance_id}`);
-    await notify.notifyTrade(this.pair, 'SELL', price, size, profit);
+    await notify.notifyTrade(this.pair, 'SELL', currentPrice, size, profit);
+    await notify.sendDiscord(`💰 **${symbol} 利確完了！** グリッドをリセットします`);
+  }
+
+  // グリッドを手動リセット
+  resetGrid() {
+    this.state.basePrice = null;
+    this.state.gridLevels = [];
+    this.saveState();
   }
 
   getStats() {
     return {
       pair: this.pair,
+      basePrice: this.state.basePrice,
       position: this.state.position,
       avgBuyPrice: this.state.avgBuyPrice,
       totalProfit: this.state.totalProfit,
       tradeCount: this.state.tradeCount,
+      gridLevels: this.state.gridLevels,
       lastUpdate: this.state.lastUpdate
     };
   }
