@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node bot.js",
     "report": "node report.js",
+    "daily": "node daily-check.js",
     "balance": "node test-balance.js",
     "ticker": "node test-ticker.js",
     "test": "echo \"Error: no test specified\" && exit 1"

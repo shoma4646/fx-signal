@@ -1,9 +1,11 @@
 const bitflyer = require('../lib/bitflyer');
 const notify = require('../lib/notify');
+const analysis = require('../lib/analysis');
 const fs = require('fs');
 const path = require('path');
 
 const STATE_FILE = path.join(__dirname, '../data/grid-state.json');
+const REBALANCE_THRESHOLD = 5; // 5%ずれたらリバランス
 
 class GridStrategy {
   constructor(name, pair, settings, dryRun = true) {
@@ -47,12 +49,16 @@ class GridStrategy {
     fs.writeFileSync(STATE_FILE, JSON.stringify(allState, null, 2));
   }
 
-  // グリッドを初期化（基準価格を固定）
-  initializeGrid(currentPrice) {
+  // グリッドを初期化（移動平均で基準価格を設定）
+  async initializeGrid(currentPrice) {
     const { gridCount, gridSpacingPercent } = this.settings;
     
-    this.state.basePrice = currentPrice;
+    // 移動平均を取得して基準価格に
+    const ma = await analysis.getMovingAverage(this.pair, 24);
+    this.state.basePrice = ma || currentPrice;
     this.state.gridLevels = [];
+    
+    const priceSource = ma ? '24h移動平均' : '現在価格';
 
     // 買いグリッド（下方向）
     for (let i = 1; i <= gridCount; i++) {
@@ -76,7 +82,7 @@ class GridStrategy {
       });
     }
 
-    console.log(`[${this.name}] 📐 グリッド初期化 基準価格: ¥${currentPrice.toLocaleString()} (間隔: ${gridSpacingPercent}%)`);
+    console.log(`[${this.name}] 📐 グリッド初期化 基準: ¥${this.state.basePrice.toLocaleString()} (${priceSource}, 間隔: ${gridSpacingPercent}%)`);
     this.state.gridLevels.forEach(g => {
       const emoji = g.type === 'BUY' ? '🟢' : '🔴';
       console.log(`[${this.name}]    ${emoji} ${g.type} Lv${g.level}: ¥${g.price.toLocaleString()}`);
@@ -93,11 +99,20 @@ class GridStrategy {
 
       // 初回 or グリッド未設定なら初期化
       if (!this.state.basePrice || this.state.gridLevels.length === 0) {
-        this.initializeGrid(currentPrice);
+        await this.initializeGrid(currentPrice);
         return { success: true, price: currentPrice, action: 'initialized' };
       }
 
-      console.log(`[${this.name}] 現在: ¥${currentPrice.toLocaleString()} | 基準: ¥${this.state.basePrice.toLocaleString()} | ポジ: ${this.state.position}`);
+      // 自動リバランスチェック（基準から5%以上ずれたら）
+      const deviation = analysis.calculateDeviation(currentPrice, this.state.basePrice);
+      if (Math.abs(deviation) >= REBALANCE_THRESHOLD && this.state.position === 0) {
+        console.log(`[${this.name}] 🔄 自動リバランス（乖離: ${deviation.toFixed(1)}%）`);
+        await notify.sendDiscord(`🔄 **${this.name}** 自動リバランス（乖離: ${deviation.toFixed(1)}%）`);
+        await this.initializeGrid(currentPrice);
+        return { success: true, price: currentPrice, action: 'rebalanced' };
+      }
+
+      console.log(`[${this.name}] 現在: ¥${currentPrice.toLocaleString()} | 基準: ¥${this.state.basePrice.toLocaleString()} | ポジ: ${this.state.position} | 乖離: ${deviation.toFixed(1)}%`);
 
       // 買いグリッドチェック
       const buyLevels = this.state.gridLevels
