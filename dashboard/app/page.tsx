@@ -26,19 +26,34 @@ interface Stats {
   lastUpdate: string;
 }
 
+interface Portfolio {
+  totalJPY: number;
+  assets: {
+    currency: string;
+    amount: number;
+    available: number;
+    jpyValue: number;
+  }[];
+  prices: Record<string, number>;
+  fetchedAt: string;
+}
+
 export default function Dashboard() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // データを読み込む
     Promise.all([
       fetch('/data/trades.json').then(r => r.json()).catch(() => []),
-      fetch('/data/stats.json').then(r => r.json()).catch(() => null)
-    ]).then(([tradesData, statsData]) => {
+      fetch('/data/stats.json').then(r => r.json()).catch(() => null),
+      fetch('/data/portfolio.json').then(r => r.json()).catch(() => null)
+    ]).then(([tradesData, statsData, portfolioData]) => {
       setTrades(tradesData);
       setStats(statsData);
+      setPortfolio(portfolioData);
       setLoading(false);
     });
   }, []);
@@ -88,6 +103,31 @@ export default function Dashboard() {
             Last update: {stats?.lastUpdate ? new Date(stats.lastUpdate).toLocaleString('ja-JP') : 'N/A'}
           </p>
         </div>
+
+        {/* 総資産カード（大きめに表示） */}
+        {portfolio && (
+          <div className="bg-gradient-to-r from-purple-900 to-indigo-900 rounded-lg p-6 mb-8">
+            <div className="text-gray-300 text-sm mb-1">💰 総資産</div>
+            <div className="text-4xl font-bold text-white mb-4">
+              ¥{portfolio.totalJPY.toLocaleString()}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {portfolio.assets.map((asset) => (
+                <div key={asset.currency} className="bg-black/20 rounded-lg p-3">
+                  <div className="text-gray-400 text-xs">{asset.currency}</div>
+                  <div className="text-white font-medium">
+                    {asset.currency === 'JPY' 
+                      ? `¥${asset.amount.toLocaleString()}`
+                      : asset.amount.toFixed(asset.amount < 1 ? 6 : 4)}
+                  </div>
+                  {asset.currency !== 'JPY' && (
+                    <div className="text-gray-400 text-xs">≈ ¥{asset.jpyValue.toLocaleString()}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* サマリーカード */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">

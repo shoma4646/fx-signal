@@ -5,6 +5,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const bitflyer = require('./lib/bitflyer');
 
 const DATA_DIR = path.join(__dirname, 'data');
 const EXPORT_DIR = path.join(__dirname, '../dashboard/public/data');
@@ -12,6 +13,65 @@ const EXPORT_DIR = path.join(__dirname, '../dashboard/public/data');
 // エクスポート先を作成
 if (!fs.existsSync(EXPORT_DIR)) {
   fs.mkdirSync(EXPORT_DIR, { recursive: true });
+}
+
+// 現在の価格を取得（公開API）
+async function getCurrentPrices() {
+  const pairs = ['BTC_JPY', 'ETH_JPY', 'XRP_JPY', 'SOL_JPY'];
+  const prices = {};
+  
+  for (const pair of pairs) {
+    try {
+      const ticker = await bitflyer.getTicker(pair);
+      prices[pair.replace('_JPY', '')] = ticker.ltp;
+    } catch (e) {
+      // 取扱いのないペアはスキップ
+    }
+  }
+  return prices;
+}
+
+// 残高を取得してJPY評価額を計算
+async function getPortfolio() {
+  try {
+    const [balance, prices] = await Promise.all([
+      bitflyer.getBalance(),
+      getCurrentPrices()
+    ]);
+    
+    let totalJPY = 0;
+    const assets = [];
+    
+    for (const b of balance) {
+      if (b.amount > 0) {
+        let jpyValue = 0;
+        
+        if (b.currency_code === 'JPY') {
+          jpyValue = b.amount;
+        } else if (prices[b.currency_code]) {
+          jpyValue = b.amount * prices[b.currency_code];
+        }
+        
+        totalJPY += jpyValue;
+        assets.push({
+          currency: b.currency_code,
+          amount: b.amount,
+          available: b.available,
+          jpyValue: Math.round(jpyValue)
+        });
+      }
+    }
+    
+    return {
+      totalJPY: Math.round(totalJPY),
+      assets,
+      prices,
+      fetchedAt: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('❌ Failed to fetch portfolio:', error.message);
+    return null;
+  }
 }
 
 // trades.json をコピー
@@ -78,4 +138,16 @@ if (fs.existsSync(safetyPath)) {
   console.log('✅ safety.json exported');
 }
 
-console.log('\n📊 Export complete!');
+// メイン実行（非同期）
+async function main() {
+  // portfolio.json を生成（API呼び出し）
+  const portfolio = await getPortfolio();
+  if (portfolio) {
+    fs.writeFileSync(path.join(EXPORT_DIR, 'portfolio.json'), JSON.stringify(portfolio, null, 2));
+    console.log(`✅ portfolio.json exported (Total: ¥${portfolio.totalJPY.toLocaleString()})`);
+  }
+  
+  console.log('\n📊 Export complete!');
+}
+
+main().catch(console.error);
