@@ -6,6 +6,7 @@ const path = require('path');
 
 const STATE_FILE = path.join(__dirname, '../data/grid-state.json');
 const REBALANCE_THRESHOLD = 5; // 5%ずれたらリバランス
+const STOP_LOSS_THRESHOLD = -7; // -7%で損切り
 
 class GridStrategy {
   constructor(name, pair, settings, dryRun = true) {
@@ -105,6 +106,14 @@ class GridStrategy {
 
       // 自動リバランスチェック（基準から5%以上ずれたら）
       const deviation = analysis.calculateDeviation(currentPrice, this.state.basePrice);
+      
+      // 損切りチェック（ポジションありで-7%以下）
+      if (this.state.position > 0 && deviation <= STOP_LOSS_THRESHOLD) {
+        console.log(`[${this.name}] 🛑 損切り発動！（乖離: ${deviation.toFixed(1)}%）`);
+        await this.executeStopLoss(currentPrice);
+        return { success: true, price: currentPrice, action: 'stop_loss' };
+      }
+      
       if (Math.abs(deviation) >= REBALANCE_THRESHOLD && this.state.position === 0) {
         console.log(`[${this.name}] 🔄 自動リバランス（乖離: ${deviation.toFixed(1)}%）`);
         await notify.sendDiscord(`🔄 **${this.name}** 自動リバランス（乖離: ${deviation.toFixed(1)}%）`);
@@ -242,6 +251,38 @@ class GridStrategy {
 
     await notify.notifyTrade(this.pair, 'SELL', currentPrice, size, profit);
     await notify.sendDiscord(`💰 **${this.name} 利確完了！** グリッドをリセットします`);
+  }
+
+  // 損切り実行
+  async executeStopLoss(currentPrice) {
+    const size = this.state.position;
+    const loss = (currentPrice - this.state.avgBuyPrice) * size;
+
+    console.log(`[${this.name}] 🛑 損切り @ ¥${currentPrice.toLocaleString()} (損失: ¥${loss.toFixed(0)})`);
+
+    if (this.dryRun) {
+      console.log(`[${this.name}] (DRY RUN)`);
+    } else {
+      await bitflyer.sendOrder({
+        product_code: this.pair,
+        child_order_type: 'MARKET',
+        side: 'SELL',
+        size: size
+      });
+    }
+
+    // 状態更新 & グリッドリセット
+    this.state.totalProfit += loss;
+    this.state.tradeCount++;
+    this.state.position = 0;
+    this.state.avgBuyPrice = 0;
+    this.state.basePrice = null;
+    this.state.gridLevels = [];
+
+    await notify.notifyTrade(this.pair, 'SELL', currentPrice, size, loss);
+    await notify.sendDiscord(`🛑 **${this.name} 損切り！** ¥${loss.toFixed(0)} | 下落トレンドのためグリッドリセット`);
+    
+    this.saveState();
   }
 
   // グリッドを手動リセット
