@@ -1,12 +1,13 @@
 const bitflyer = require('../lib/bitflyer');
 const notify = require('../lib/notify');
 const analysis = require('../lib/analysis');
+const safety = require('../lib/safety');
 const fs = require('fs');
 const path = require('path');
 
 const STATE_FILE = path.join(__dirname, '../data/grid-state.json');
 const REBALANCE_THRESHOLD = 5; // 5%ずれたらリバランス
-const STOP_LOSS_THRESHOLD = -7; // -7%で損切り
+const STOP_LOSS_THRESHOLD = -5; // -5%で損切り（安全重視）
 
 class GridStrategy {
   constructor(name, pair, settings, dryRun = true) {
@@ -222,6 +223,7 @@ class GridStrategy {
     level.triggered = true;
 
     await notify.notifyTrade(this.pair, 'SELL', currentPrice, size, profit);
+    await safety.recordTrade(profit, 5000);
   }
 
   async executeTakeProfit(currentPrice) {
@@ -251,6 +253,7 @@ class GridStrategy {
 
     await notify.notifyTrade(this.pair, 'SELL', currentPrice, size, profit);
     await notify.sendDiscord(`💰 **${this.name} 利確完了！** グリッドをリセットします`);
+    await safety.recordTrade(profit, 5000);
   }
 
   // 損切り実行
@@ -281,6 +284,7 @@ class GridStrategy {
 
     await notify.notifyTrade(this.pair, 'SELL', currentPrice, size, loss);
     await notify.sendDiscord(`🛑 **${this.name} 損切り！** ¥${loss.toFixed(0)} | 下落トレンドのためグリッドリセット`);
+    await safety.recordTrade(loss, 5000);
     
     this.saveState();
   }

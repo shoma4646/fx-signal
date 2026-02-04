@@ -6,6 +6,7 @@ const path = require('path');
 const GridStrategy = require('./strategies/grid');
 const notify = require('./lib/notify');
 const bitflyer = require('./lib/bitflyer');
+const safety = require('./lib/safety');
 
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 
@@ -114,8 +115,27 @@ class CryptoBot {
       return;
     }
 
+    // セーフティチェック
+    if (!safety.canTrade()) {
+      const status = safety.getStatus();
+      console.log(`⏸️ Bot一時停止中: ${status.pauseReason}`);
+      return;
+    }
+
     // 各戦略を実行
-    for (const [pair, strategy] of Object.entries(this.strategies)) {
+    for (const [name, strategy] of Object.entries(this.strategies)) {
+      // 急変動チェック
+      try {
+        const ticker = await bitflyer.getTicker(strategy.pair);
+        const volCheck = await safety.checkVolatility(strategy.pair, ticker.ltp, 2);
+        if (!volCheck.safe) {
+          console.log(`🚨 [${name}] 急変動検知！ 取引スキップ`);
+          continue;
+        }
+      } catch (e) {
+        // ticker取得失敗時は続行
+      }
+
       await strategy.execute();
     }
   }
