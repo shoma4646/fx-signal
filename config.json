@@ -19,22 +19,10 @@
   },
   
   "strategies": {
-    "ETH_WIDE": {
+    "ETH_NORMAL": {
       "pair": "ETH_JPY",
       "enabled": true,
-      "note": "広めグリッド - 安定重視",
-      "gridSettings": {
-        "gridCount": 3,
-        "gridSpacingPercent": 1.5,
-        "orderSize": 0.01,
-        "maxPosition": 0.05,
-        "takeProfitPercent": 1.5
-      }
-    },
-    "ETH_NARROW": {
-      "pair": "ETH_JPY",
-      "enabled": true,
-      "note": "狭めグリッド - 回転重視",
+      "note": "通常グリッド - バランス型",
       "gridSettings": {
         "gridCount": 5,
         "gridSpacingPercent": 0.5,
@@ -43,28 +31,40 @@
         "takeProfitPercent": 0.5
       }
     },
-    "BTC_WIDE": {
-      "pair": "BTC_JPY",
+    "ETH_AGGRESSIVE": {
+      "pair": "ETH_JPY",
       "enabled": true,
-      "note": "広めグリッド - 安定重視",
+      "note": "🔥攻めグリッド - 超高回転",
       "gridSettings": {
-        "gridCount": 3,
-        "gridSpacingPercent": 1.0,
-        "orderSize": 0.001,
-        "maxPosition": 0.005,
-        "takeProfitPercent": 1.0
+        "gridCount": 8,
+        "gridSpacingPercent": 0.2,
+        "orderSize": 0.01,
+        "maxPosition": 0.08,
+        "takeProfitPercent": 0.2
       }
     },
-    "BTC_NARROW": {
+    "BTC_NORMAL": {
       "pair": "BTC_JPY",
       "enabled": true,
-      "note": "狭めグリッド - 回転重視",
+      "note": "通常グリッド - バランス型",
       "gridSettings": {
         "gridCount": 5,
         "gridSpacingPercent": 0.3,
         "orderSize": 0.001,
         "maxPosition": 0.005,
         "takeProfitPercent": 0.3
+      }
+    },
+    "BTC_AGGRESSIVE": {
+      "pair": "BTC_JPY",
+      "enabled": true,
+      "note": "🔥攻めグリッド - 超高回転",
+      "gridSettings": {
+        "gridCount": 8,
+        "gridSpacingPercent": 0.15,
+        "orderSize": 0.001,
+        "maxPosition": 0.008,
+        "takeProfitPercent": 0.15
       }
     }
   }
