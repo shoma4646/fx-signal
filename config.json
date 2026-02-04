@@ -2,7 +2,7 @@
   "version": 1,
   "updatedAt": "2026-02-04T10:06:00+09:00",
   "updatedBy": "stella",
-  "note": "初期設定 - ETHでグリッドトレード開始",
+  "note": "DRY RUN - ETH+BTC両方でテスト中",
   
   "bot": {
     "enabled": true,
@@ -31,7 +31,7 @@
       }
     },
     "BTC_JPY": {
-      "enabled": false,
+      "enabled": true,
       "strategy": "grid",
       "gridSettings": {
         "gridCount": 3,
