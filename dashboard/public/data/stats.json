@@ -1,0 +1,21 @@
+{
+  "totalProfit": 5277.021000000037,
+  "tradeCount": 302,
+  "winCount": 66,
+  "lossCount": 0,
+  "positions": [
+    {
+      "name": "BTC_NORMAL",
+      "position": 0.005,
+      "avgBuyPrice": 11318167.2,
+      "totalProfit": 1434.1570000000168
+    },
+    {
+      "name": "BTC_AGGRESSIVE",
+      "position": 0.008,
+      "avgBuyPrice": 11327323.250000002,
+      "totalProfit": 2132.204000000023
+    }
+  ],
+  "lastUpdate": "2026-02-04T22:10:55.598Z"
+}

@@ -1,4 +1,6 @@
 node_modules/
 .env
-data/
+bot/data/
+dashboard/.next/
+dashboard/out/
 *.log

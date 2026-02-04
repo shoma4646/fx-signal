@@ -1,78 +1,56 @@
 # 🌟 Stella Trader
 
-bitFlyerでグリッドトレードを行う自動売買Bot。ステラ（AI）がパラメータ調整をサポート。
+自動グリッドトレードBot + ダッシュボード
 
 ## 機能
 
-- 📊 グリッドトレード戦略
-- 🔄 複数通貨ペア対応（ETH_JPY, BTC_JPY）
-- 📱 Discord通知（Webhook）
-- 🤖 AI（ステラ）によるパラメータ最適化
-- 🧪 DRY RUNモード（シミュレーション）
+### Bot
+- 📊 グリッドトレード戦略（NORMAL / AGGRESSIVE）
+- 🛡️ セーフティ機能（急変動検知、損切り、日次損失上限）
+- 🔄 自動リバランス・自動再開
+- 📱 Discord通知
+
+### Dashboard
+- 📈 損益推移グラフ
+- 📊 取引統計
+- 💼 ポジション表示
+- 📋 取引履歴
 
 ## セットアップ
 
 ```bash
-npm install
-cp .env.example .env
-# .env にAPIキーを設定
-```
+# 依存関係インストール
+cd bot && npm install
+cd ../dashboard && npm install
 
-## 使い方
-
-```bash
 # Bot起動
-npm start
+cd bot && npm start
 
-# レポート表示
-npm run report
-
-# 残高確認
-npm run balance
+# ダッシュボード開発
+cd dashboard && npm run dev
 ```
 
-## 設定
-
-`config.json` でパラメータを調整：
-
-```json
-{
-  "bot": {
-    "enabled": true,
-    "dryRun": true,        // trueでシミュレーション
-    "checkIntervalSec": 30
-  },
-  "pairs": {
-    "ETH_JPY": {
-      "enabled": true,
-      "gridSettings": {
-        "gridSpacingPercent": 1.5,  // グリッド間隔
-        "takeProfitPercent": 1.5,   // 利確ライン
-        "orderSize": 0.01           // 注文サイズ
-      }
-    }
-  }
-}
-```
-
-## ファイル構成
+## 構成
 
 ```
 stella-trader/
-├── bot.js           # メインBot
-├── report.js        # レポート生成
-├── config.json      # 設定ファイル
-├── lib/
-│   ├── bitflyer.js  # bitFlyer API
-│   └── notify.js    # 通知
-├── strategies/
-│   └── grid.js      # グリッド戦略
-└── data/            # ログ・状態保存
+├── bot/                  # トレーディングBot
+│   ├── bot.js           # メイン
+│   ├── config.json      # 設定
+│   ├── lib/             # ライブラリ
+│   ├── strategies/      # 戦略
+│   └── data/            # 取引データ
+├── dashboard/           # Next.jsダッシュボード
+│   ├── app/
+│   └── public/data/     # エクスポートされたデータ
+└── .github/workflows/   # 自動デプロイ
 ```
 
-## ライセンス
+## ダッシュボード
 
-MIT
+GitHub Pages: https://shoma4646.github.io/stella-trader
+
+3時間ごとに自動更新されます。
 
 ---
 
