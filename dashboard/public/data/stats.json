@@ -1,7 +1,7 @@
 {
-  "totalProfit": 6714.37100000004,
-  "tradeCount": 358,
-  "winCount": 84,
+  "totalProfit": 7020.9080000000395,
+  "tradeCount": 380,
+  "winCount": 90,
   "lossCount": 0,
   "positions": [
     {
@@ -11,5 +11,5 @@
       "totalProfit": 1785.7620000000204
     }
   ],
-  "lastUpdate": "2026-02-05T05:01:41.908Z"
+  "lastUpdate": "2026-02-05T06:01:26.863Z"
 }
