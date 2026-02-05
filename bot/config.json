@@ -1,8 +1,8 @@
 {
-  "version": 3,
-  "updatedAt": "2026-02-05T20:13:00+09:00",
+  "version": 4,
+  "updatedAt": "2026-02-05T22:01:00+09:00",
   "updatedBy": "stella",
-  "note": "🚀 実運用開始！ETH_AGGRESSIVE集中（5万円運用）",
+  "note": "🎯 利益最大化設定 - グリッド0.4%、効率重視",
   
   "bot": {
     "enabled": true,
@@ -19,10 +19,22 @@
   },
   
   "strategies": {
+    "ETH_AGGRESSIVE": {
+      "pair": "ETH_JPY",
+      "enabled": true,
+      "note": "🎯 利益最大化グリッド - 0.4%幅、高効率",
+      "gridSettings": {
+        "gridCount": 6,
+        "gridSpacingPercent": 0.4,
+        "orderSize": 0.01,
+        "maxPosition": 0.03,
+        "takeProfitPercent": 0.4
+      }
+    },
     "ETH_NORMAL": {
       "pair": "ETH_JPY",
       "enabled": false,
-      "note": "通常グリッド - バランス型（停止中）",
+      "note": "停止中",
       "gridSettings": {
         "gridCount": 5,
         "gridSpacingPercent": 0.5,
@@ -31,22 +43,10 @@
         "takeProfitPercent": 0.5
       }
     },
-    "ETH_AGGRESSIVE": {
-      "pair": "ETH_JPY",
-      "enabled": true,
-      "note": "🔥 実運用中！超高回転グリッド",
-      "gridSettings": {
-        "gridCount": 8,
-        "gridSpacingPercent": 0.1,
-        "orderSize": 0.01,
-        "maxPosition": 0.05,
-        "takeProfitPercent": 0.1
-      }
-    },
     "BTC_NORMAL": {
       "pair": "BTC_JPY",
       "enabled": false,
-      "note": "通常グリッド - バランス型（停止中）",
+      "note": "停止中",
       "gridSettings": {
         "gridCount": 5,
         "gridSpacingPercent": 0.3,
@@ -58,7 +58,7 @@
     "BTC_AGGRESSIVE": {
       "pair": "BTC_JPY",
       "enabled": false,
-      "note": "攻めグリッド（停止中）",
+      "note": "停止中",
       "gridSettings": {
         "gridCount": 8,
         "gridSpacingPercent": 0.1,
@@ -70,7 +70,7 @@
     "FX_BTC_LONG": {
       "pair": "FX_BTC_JPY",
       "enabled": false,
-      "note": "FXロング（停止中）",
+      "note": "停止中",
       "gridSettings": {
         "gridCount": 5,
         "gridSpacingPercent": 0.3,
@@ -84,7 +84,7 @@
     "FX_BTC_SHORT": {
       "pair": "FX_BTC_JPY",
       "enabled": false,
-      "note": "FXショート（停止中）",
+      "note": "停止中",
       "gridSettings": {
         "gridCount": 5,
         "gridSpacingPercent": 0.3,
