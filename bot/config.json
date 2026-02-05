@@ -57,14 +57,14 @@
     },
     "BTC_AGGRESSIVE": {
       "pair": "BTC_JPY",
-      "enabled": false,
-      "note": "停止中",
+      "enabled": true,
+      "note": "🔥 BTC高回転グリッド",
       "gridSettings": {
         "gridCount": 8,
-        "gridSpacingPercent": 0.1,
+        "gridSpacingPercent": 0.2,
         "orderSize": 0.001,
-        "maxPosition": 0.008,
-        "takeProfitPercent": 0.1
+        "maxPosition": 0.005,
+        "takeProfitPercent": 0.2
       }
     },
     "FX_BTC_LONG": {
