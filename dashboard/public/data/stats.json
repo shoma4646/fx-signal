@@ -1,8 +1,15 @@
 {
-  "totalProfit": 5893.7720000000245,
-  "tradeCount": 312,
-  "winCount": 70,
+  "totalProfit": 6278.622000000034,
+  "tradeCount": 338,
+  "winCount": 78,
   "lossCount": 0,
-  "positions": [],
-  "lastUpdate": "2026-02-05T02:02:19.428Z"
+  "positions": [
+    {
+      "name": "BTC_NORMAL",
+      "position": 0.004,
+      "avgBuyPrice": 11235819.5,
+      "totalProfit": 1785.7620000000204
+    }
+  ],
+  "lastUpdate": "2026-02-05T03:01:40.862Z"
 }
