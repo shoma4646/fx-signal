@@ -37,8 +37,15 @@ class GridStrategy {
       avgBuyPrice: 0,            // 後方互換のため残す
       totalProfit: 0,            // 累計利益
       tradeCount: 0,             // 取引回数
-      lastUpdate: null
+      lastUpdate: null,
+      configHash: null           // 設定のハッシュ（変更検知用）
     };
+  }
+
+  // 設定のハッシュを生成
+  getConfigHash() {
+    const key = `${this.settings.gridSpacingPercent}-${this.settings.gridCount}-${this.direction}`;
+    return key;
   }
 
   saveState() {
@@ -126,7 +133,23 @@ class GridStrategy {
       // 初回 or グリッド未設定なら初期化
       if (!this.state.basePrice || this.state.gridLevels.length === 0) {
         await this.initializeGrid(currentPrice);
+        this.state.configHash = this.getConfigHash();
+        this.saveState();
         return { success: true, price: currentPrice, action: 'initialized' };
+      }
+
+      // config変更検知 → グリッドリセット
+      const currentConfigHash = this.getConfigHash();
+      if (this.state.configHash && this.state.configHash !== currentConfigHash) {
+        console.log(`[${this.name}] ⚙️ 設定変更検知！グリッドをリセットします`);
+        console.log(`[${this.name}]    旧: ${this.state.configHash} → 新: ${currentConfigHash}`);
+        await notify.sendDiscord(`⚙️ **${this.name}** 設定変更検知 → グリッドリセット`);
+        this.state.basePrice = null;
+        this.state.gridLevels = [];
+        await this.initializeGrid(currentPrice);
+        this.state.configHash = currentConfigHash;
+        this.saveState();
+        return { success: true, price: currentPrice, action: 'config_changed' };
       }
 
       // 自動リバランスチェック（基準から3%以上ずれたら）
