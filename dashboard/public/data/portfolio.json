@@ -1,5 +1,5 @@
 {
-  "totalJPY": 85062,
+  "totalJPY": 84555,
   "assets": [
     {
       "currency": "JPY",
@@ -11,13 +11,13 @@
       "currency": "BTC",
       "amount": 0.00534813,
       "available": 0.00534813,
-      "jpyValue": 60040
+      "jpyValue": 59704
     },
     {
       "currency": "ETH",
       "amount": 0.05788862,
       "available": 0.05788862,
-      "jpyValue": 19333
+      "jpyValue": 19164
     },
     {
       "currency": "DOGE",
@@ -45,9 +45,9 @@
     }
   ],
   "prices": {
-    "BTC": 11226435,
-    "ETH": 333972,
-    "XRP": 229.4
+    "BTC": 11163450,
+    "ETH": 331048,
+    "XRP": 225.65
   },
-  "fetchedAt": "2026-02-05T03:01:41.327Z"
+  "fetchedAt": "2026-02-05T04:01:47.810Z"
 }
