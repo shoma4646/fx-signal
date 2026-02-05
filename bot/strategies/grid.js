@@ -16,6 +16,7 @@ class GridStrategy {
     this.settings = settings;
     this.dryRun = dryRun;
     this.direction = settings.direction || 'long';  // 'long' or 'short'
+    this.trendFollow = settings.trendFollow || false;  // トレンドフォロー有効化
     this.state = this.loadState();
   }
 
@@ -128,10 +129,30 @@ class GridStrategy {
         return { success: true, price: currentPrice, action: 'initialized' };
       }
 
-      // 自動リバランスチェック（基準から5%以上ずれたら）
+      // 自動リバランスチェック（基準から3%以上ずれたら）
       const deviation = analysis.calculateDeviation(currentPrice, this.state.basePrice);
       
-      // 損切りチェック（ポジションありで-7%以下）
+      // トレンドフォローチェック（FX戦略用）
+      if (this.trendFollow && this.state.position === 0) {
+        const trendInfo = await analysis.getTrend(this.pair, currentPrice);
+        
+        // トレンドに逆らう場合はスキップ
+        if (this.direction === 'long' && trendInfo.trend === 'bearish') {
+          console.log(`[${this.name}] ⏸️ 下落トレンド中 → ロングスキップ (${trendInfo.reason})`);
+          return { success: true, price: currentPrice, action: 'trend_skip' };
+        }
+        if (this.direction === 'short' && trendInfo.trend === 'bullish') {
+          console.log(`[${this.name}] ⏸️ 上昇トレンド中 → ショートスキップ (${trendInfo.reason})`);
+          return { success: true, price: currentPrice, action: 'trend_skip' };
+        }
+        
+        // レンジ相場では両方稼働
+        if (trendInfo.trend !== 'neutral') {
+          console.log(`[${this.name}] 📊 トレンド: ${trendInfo.reason}`);
+        }
+      }
+      
+      // 損切りチェック（ポジションありで-5%以下）
       if (this.state.position > 0 && deviation <= STOP_LOSS_THRESHOLD) {
         console.log(`[${this.name}] 🛑 損切り発動！（乖離: ${deviation.toFixed(1)}%）`);
         await this.executeStopLoss(currentPrice);

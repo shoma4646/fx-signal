@@ -74,6 +74,46 @@ class Analysis {
     }
   }
 
+  // トレンド判断（移動平均との比較）
+  async getTrend(pair, currentPrice) {
+    try {
+      const ma24h = await this.getMovingAverage(pair, 24);
+      
+      if (!ma24h) {
+        return { trend: 'neutral', reason: 'データ不足' };
+      }
+
+      const deviation = this.calculateDeviation(currentPrice, ma24h);
+      
+      // 1%以上乖離でトレンド判断
+      if (deviation > 1.0) {
+        return { 
+          trend: 'bullish', 
+          ma: ma24h, 
+          deviation,
+          reason: `価格がMA24hより${deviation.toFixed(1)}%上 → 上昇トレンド`
+        };
+      } else if (deviation < -1.0) {
+        return { 
+          trend: 'bearish', 
+          ma: ma24h, 
+          deviation,
+          reason: `価格がMA24hより${Math.abs(deviation).toFixed(1)}%下 → 下落トレンド`
+        };
+      } else {
+        return { 
+          trend: 'neutral', 
+          ma: ma24h, 
+          deviation,
+          reason: `MA24h付近でレンジ（乖離${deviation.toFixed(1)}%）`
+        };
+      }
+    } catch (error) {
+      console.error(`[Analysis] トレンド判断エラー: ${error.message}`);
+      return { trend: 'neutral', reason: 'エラー' };
+    }
+  }
+
   // グリッド幅の推奨値を計算
   async recommendGridSpacing(pair) {
     const volatility = await this.getVolatility(pair, 24);
