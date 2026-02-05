@@ -34,13 +34,13 @@
     "ETH_AGGRESSIVE": {
       "pair": "ETH_JPY",
       "enabled": true,
-      "note": "🔥攻めグリッド - 超高回転",
+      "note": "🔥攻めグリッド - 超高回転（0.1%テスト）",
       "gridSettings": {
         "gridCount": 8,
-        "gridSpacingPercent": 0.2,
+        "gridSpacingPercent": 0.1,
         "orderSize": 0.01,
         "maxPosition": 0.08,
-        "takeProfitPercent": 0.2
+        "takeProfitPercent": 0.1
       }
     },
     "BTC_NORMAL": {
@@ -58,13 +58,13 @@
     "BTC_AGGRESSIVE": {
       "pair": "BTC_JPY",
       "enabled": true,
-      "note": "🔥攻めグリッド - 超高回転",
+      "note": "🔥攻めグリッド - 超高回転（0.1%テスト）",
       "gridSettings": {
         "gridCount": 8,
-        "gridSpacingPercent": 0.15,
+        "gridSpacingPercent": 0.1,
         "orderSize": 0.001,
         "maxPosition": 0.008,
-        "takeProfitPercent": 0.15
+        "takeProfitPercent": 0.1
       }
     },
     "FX_BTC_LONG": {
