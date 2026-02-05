@@ -1,15 +1,21 @@
 {
-  "totalProfit": 7388.945000000043,
-  "tradeCount": 398,
-  "winCount": 98,
+  "totalProfit": 7539.350000000037,
+  "tradeCount": 425,
+  "winCount": 102,
   "lossCount": 0,
   "positions": [
     {
       "name": "ETH_NORMAL",
-      "position": 0.01,
-      "avgBuyPrice": 334666,
-      "totalProfit": 634.3099999999984
+      "position": 0.04,
+      "avgBuyPrice": 331383.5,
+      "totalProfit": 651.4099999999984
+    },
+    {
+      "name": "BTC_NORMAL",
+      "position": 0.004,
+      "avgBuyPrice": 11169831.750000002,
+      "totalProfit": 2082.560000000024
     }
   ],
-  "lastUpdate": "2026-02-05T10:02:01.813Z"
+  "lastUpdate": "2026-02-05T11:02:14.624Z"
 }
