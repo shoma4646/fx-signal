@@ -57,7 +57,16 @@ class BitFlyer {
 
   async sendOrder(params) {
     // params: { product_code, child_order_type, side, price, size }
-    return this.callPrivate('POST', '/v1/me/sendchildorder', params);
+    try {
+      const result = await this.callPrivate('POST', '/v1/me/sendchildorder', params);
+      console.log(`[bitFlyer] ✅ 注文成功: ${params.side} ${params.size} ${params.product_code}`);
+      return result;
+    } catch (error) {
+      const errMsg = error.response?.data || error.message;
+      console.error(`[bitFlyer] ❌ 注文失敗: ${params.side} ${params.size} ${params.product_code}`);
+      console.error(`[bitFlyer]    詳細: ${JSON.stringify(errMsg)}`);
+      throw error;
+    }
   }
 
   async cancelOrder(productCode, childOrderId) {

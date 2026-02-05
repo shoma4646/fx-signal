@@ -283,15 +283,20 @@ class GridStrategy {
     if (this.dryRun) {
       console.log(`[${this.name}] (DRY RUN)`);
     } else {
-      await bitflyer.sendOrder({
-        product_code: this.pair,
-        child_order_type: 'MARKET',
-        side: 'BUY',
-        size: size
-      });
+      try {
+        await bitflyer.sendOrder({
+          product_code: this.pair,
+          child_order_type: 'MARKET',
+          side: 'BUY',
+          size: size
+        });
+      } catch (error) {
+        console.error(`[${this.name}] ❌ 買い注文失敗 - 状態更新スキップ`);
+        return; // 注文失敗時は状態を更新しない
+      }
     }
 
-    // 状態更新
+    // 状態更新（注文成功時のみ）
     const newPosition = this.state.position + size;
     this.state.avgBuyPrice = 
       (this.state.avgBuyPrice * this.state.position + price * size) / newPosition;
@@ -311,15 +316,20 @@ class GridStrategy {
     if (this.dryRun) {
       console.log(`[${this.name}] (DRY RUN)`);
     } else {
-      await bitflyer.sendOrder({
-        product_code: this.pair,
-        child_order_type: 'MARKET',
-        side: 'SELL',
-        size: size
-      });
+      try {
+        await bitflyer.sendOrder({
+          product_code: this.pair,
+          child_order_type: 'MARKET',
+          side: 'SELL',
+          size: size
+        });
+      } catch (error) {
+        console.error(`[${this.name}] ❌ 売り注文失敗 - 状態更新スキップ`);
+        return;
+      }
     }
 
-    // 状態更新
+    // 状態更新（注文成功時のみ）
     this.state.position -= size;
     if (this.state.position <= 0) {
       this.state.position = 0;
