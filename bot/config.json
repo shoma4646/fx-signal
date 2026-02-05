@@ -66,6 +66,18 @@
         "maxPosition": 0.008,
         "takeProfitPercent": 0.15
       }
+    },
+    "FX_BTC_LONG": {
+      "pair": "FX_BTC_JPY",
+      "enabled": true,
+      "note": "⚡ FXテスト - ロング（買い）グリッド",
+      "gridSettings": {
+        "gridCount": 5,
+        "gridSpacingPercent": 0.3,
+        "orderSize": 0.001,
+        "maxPosition": 0.005,
+        "takeProfitPercent": 0.3
+      }
     }
   }
 }
