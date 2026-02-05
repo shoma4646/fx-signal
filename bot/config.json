@@ -24,10 +24,10 @@
       "enabled": true,
       "note": "🎯 利益最大化グリッド - 0.4%幅、高効率",
       "gridSettings": {
-        "gridCount": 6,
+        "gridCount": 8,
         "gridSpacingPercent": 0.4,
         "orderSize": 0.01,
-        "maxPosition": 0.03,
+        "maxPosition": 0.08,
         "takeProfitPercent": 0.4
       }
     },
