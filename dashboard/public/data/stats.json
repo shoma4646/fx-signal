@@ -1,6 +1,6 @@
 {
   "totalProfit": 3965.358000000028,
-  "tradeCount": 331,
+  "tradeCount": 334,
   "winCount": 116,
   "lossCount": 2,
   "positions": [
@@ -12,8 +12,8 @@
     },
     {
       "name": "ETH_AGGRESSIVE",
-      "position": 0.03,
-      "avgBuyPrice": 313801.3333333334,
+      "position": 0.05,
+      "avgBuyPrice": 313366.00000000006,
       "totalProfit": -190.23999999999762
     },
     {
@@ -24,10 +24,10 @@
     },
     {
       "name": "BTC_AGGRESSIVE",
-      "position": 0.002,
-      "avgBuyPrice": 10706154.5,
+      "position": 0.003,
+      "avgBuyPrice": 10697761.666666668,
       "totalProfit": 1421.6280000000029
     }
   ],
-  "lastUpdate": "2026-02-05T17:00:04.754Z"
+  "lastUpdate": "2026-02-05T18:00:05.100Z"
 }
