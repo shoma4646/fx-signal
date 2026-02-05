@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 
 const STATE_FILE = path.join(__dirname, '../data/grid-state.json');
-const REBALANCE_THRESHOLD = 1.5; // 1.5%ずれたらリバランス
+const REBALANCE_THRESHOLD = 3.0; // 3%ずれたらリバランス（頻繁なリセット防止）
 const STOP_LOSS_THRESHOLD = -5; // -5%で損切り（安全重視）
 
 class GridStrategy {
