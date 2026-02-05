@@ -67,6 +67,51 @@ class Notify {
     console.log(message);
   }
 
+  // ステラにメンションして妥当性チェックを依頼
+  async requestValidation(strategyName, pair, side, price, size, context = {}) {
+    const STELLA_ID = '1464669395543654430';
+    const symbol = pair.replace('_JPY', '');
+    const action = side === 'BUY' ? '買い' : (side === 'SELL' ? '売り' : side);
+    
+    let message = `<@${STELLA_ID}> **ポジション妥当性チェック依頼**\n`;
+    message += `📊 **${strategyName}** が ${symbol} を${action}しました\n`;
+    message += `- 価格: ¥${price.toLocaleString()}\n`;
+    message += `- 数量: ${size}\n`;
+    
+    if (context.position !== undefined) {
+      message += `- 現在ポジション: ${context.position}\n`;
+    }
+    if (context.avgPrice) {
+      message += `- 平均取得価格: ¥${context.avgPrice.toLocaleString()}\n`;
+    }
+    if (context.jpyBalance !== undefined) {
+      message += `- JPY残高: ¥${context.jpyBalance.toLocaleString()}\n`;
+    }
+    if (context.cryptoBalance !== undefined) {
+      message += `- ${symbol}残高: ${context.cryptoBalance}\n`;
+    }
+    
+    message += `\n妥当性を確認してください 🙏`;
+    
+    await this.sendDiscord(message);
+    console.log(`[Notify] ステラに妥当性チェック依頼送信: ${strategyName} ${action}`);
+  }
+
+  // 残高不足エラー通知
+  async notifyInsufficientBalance(strategyName, pair, side, required, available) {
+    const STELLA_ID = '1464669395543654430';
+    const symbol = pair.replace('_JPY', '');
+    
+    let message = `<@${STELLA_ID}> ⚠️ **残高不足で注文スキップ**\n`;
+    message += `- 戦略: ${strategyName}\n`;
+    message += `- 注文: ${side} ${symbol}\n`;
+    message += `- 必要: ${typeof required === 'number' ? required.toLocaleString() : required}\n`;
+    message += `- 利用可能: ${typeof available === 'number' ? available.toLocaleString() : available}\n`;
+    
+    await this.sendDiscord(message);
+    console.log(`[Notify] 残高不足通知: ${strategyName}`);
+  }
+
   // エラー通知
   async notifyError(error) {
     const message = `⚠️ **Botエラー**\n\`\`\`${error}\`\`\``;

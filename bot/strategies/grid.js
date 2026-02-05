@@ -277,8 +277,27 @@ class GridStrategy {
   async executeBuy(level, currentPrice) {
     const size = this.settings.orderSize;
     const price = currentPrice; // 成行相当
+    const requiredJpy = price * size * 1.01; // 手数料込みで1%余裕
 
     console.log(`[${this.name}] 🟢 買いシグナル Lv${level.level} @ ¥${price.toLocaleString()}`);
+
+    // 残高チェック（本番のみ）
+    if (!this.dryRun) {
+      try {
+        const balances = await bitflyer.getBalance();
+        const jpyBalance = balances.find(b => b.currency_code === 'JPY')?.available || 0;
+        
+        if (jpyBalance < requiredJpy) {
+          console.log(`[${this.name}] ⚠️ JPY残高不足 (必要: ¥${requiredJpy.toFixed(0)}, 利用可能: ¥${jpyBalance.toFixed(0)})`);
+          await notify.notifyInsufficientBalance(this.name, this.pair, 'BUY', `¥${requiredJpy.toFixed(0)}`, `¥${jpyBalance.toFixed(0)}`);
+          return;
+        }
+      } catch (error) {
+        console.error(`[${this.name}] ❌ 残高取得失敗:`, error.message);
+        await notify.notifyError(`${this.name}: 残高取得失敗 - ${error.message}`);
+        return;
+      }
+    }
 
     if (this.dryRun) {
       console.log(`[${this.name}] (DRY RUN)`);
@@ -305,13 +324,51 @@ class GridStrategy {
     level.triggered = true;
 
     await notify.notifyTrade(this.pair, 'BUY', price, size);
+    
+    // ステラに妥当性チェック依頼（本番のみ）
+    if (!this.dryRun) {
+      try {
+        const balances = await bitflyer.getBalance();
+        const jpyBalance = balances.find(b => b.currency_code === 'JPY')?.available || 0;
+        const symbol = this.pair.replace('_JPY', '');
+        const cryptoBalance = balances.find(b => b.currency_code === symbol)?.available || 0;
+        
+        await notify.requestValidation(this.name, this.pair, 'BUY', price, size, {
+          position: this.state.position,
+          avgPrice: this.state.avgBuyPrice,
+          jpyBalance,
+          cryptoBalance
+        });
+      } catch (error) {
+        console.error(`[${this.name}] 妥当性チェック依頼失敗:`, error.message);
+      }
+    }
   }
 
   async executeSell(level, currentPrice) {
     const size = Math.min(this.settings.orderSize, this.state.position);
     const profit = (currentPrice - this.state.avgBuyPrice) * size;
+    const symbol = this.pair.replace('_JPY', '');
 
     console.log(`[${this.name}] 🔴 売りシグナル Lv${level.level} @ ¥${currentPrice.toLocaleString()} (損益: ¥${profit.toFixed(0)})`);
+
+    // 残高チェック（本番のみ）- 実際に持っているか確認
+    if (!this.dryRun) {
+      try {
+        const balances = await bitflyer.getBalance();
+        const cryptoBalance = balances.find(b => b.currency_code === symbol)?.available || 0;
+        
+        if (cryptoBalance < size) {
+          console.log(`[${this.name}] ⚠️ ${symbol}残高不足 (必要: ${size}, 利用可能: ${cryptoBalance})`);
+          await notify.notifyInsufficientBalance(this.name, this.pair, 'SELL', size, cryptoBalance);
+          return;
+        }
+      } catch (error) {
+        console.error(`[${this.name}] ❌ 残高取得失敗:`, error.message);
+        await notify.notifyError(`${this.name}: 残高取得失敗 - ${error.message}`);
+        return;
+      }
+    }
 
     if (this.dryRun) {
       console.log(`[${this.name}] (DRY RUN)`);
@@ -376,18 +433,42 @@ class GridStrategy {
   // ショートエントリー実行
   async executeShort(level, currentPrice) {
     const size = this.settings.orderSize;
+    const symbol = this.pair.replace('_JPY', '');
 
     console.log(`[${this.name}] 🔴 ショートエントリー Lv${level.level} @ ¥${currentPrice.toLocaleString()}`);
+
+    // 残高チェック（本番のみ）- 売る分のコインを持っているか確認
+    if (!this.dryRun) {
+      try {
+        const balances = await bitflyer.getBalance();
+        const cryptoBalance = balances.find(b => b.currency_code === symbol)?.available || 0;
+        
+        if (cryptoBalance < size) {
+          console.log(`[${this.name}] ⚠️ ${symbol}残高不足 (必要: ${size}, 利用可能: ${cryptoBalance})`);
+          await notify.notifyInsufficientBalance(this.name, this.pair, 'SHORT', size, cryptoBalance);
+          return;
+        }
+      } catch (error) {
+        console.error(`[${this.name}] ❌ 残高取得失敗:`, error.message);
+        await notify.notifyError(`${this.name}: 残高取得失敗 - ${error.message}`);
+        return;
+      }
+    }
 
     if (this.dryRun) {
       console.log(`[${this.name}] (DRY RUN)`);
     } else {
-      await bitflyer.sendOrder({
-        product_code: this.pair,
-        child_order_type: 'MARKET',
-        side: 'SELL',
-        size: size
-      });
+      try {
+        await bitflyer.sendOrder({
+          product_code: this.pair,
+          child_order_type: 'MARKET',
+          side: 'SELL',
+          size: size
+        });
+      } catch (error) {
+        console.error(`[${this.name}] ❌ ショートエントリー失敗 - 状態更新スキップ`);
+        return;
+      }
     }
 
     // 状態更新（ショートなのでpositionは負の値）
@@ -403,24 +484,66 @@ class GridStrategy {
     level.triggered = true;
 
     await notify.notifyTrade(this.pair, 'SHORT', currentPrice, size);
+    
+    // ステラに妥当性チェック依頼（本番のみ）
+    if (!this.dryRun) {
+      try {
+        const balances = await bitflyer.getBalance();
+        const jpyBalance = balances.find(b => b.currency_code === 'JPY')?.available || 0;
+        const cryptoBalance = balances.find(b => b.currency_code === symbol)?.available || 0;
+        
+        await notify.requestValidation(this.name, this.pair, 'SHORT', currentPrice, size, {
+          position: this.state.position,
+          avgPrice: this.state.avgEntryPrice,
+          jpyBalance,
+          cryptoBalance
+        });
+      } catch (error) {
+        console.error(`[${this.name}] 妥当性チェック依頼失敗:`, error.message);
+      }
+    }
   }
 
   // ショートカバー（買い戻し）実行
   async executeCover(level, currentPrice) {
     const size = Math.min(this.settings.orderSize, Math.abs(this.state.position));
     const profit = (this.state.avgEntryPrice - currentPrice) * size;  // ショートは売値-買値
+    const requiredJpy = currentPrice * size * 1.01; // 手数料込みで1%余裕
 
     console.log(`[${this.name}] 🟢 ショートカバー Lv${level.level} @ ¥${currentPrice.toLocaleString()} (損益: ¥${profit.toFixed(0)})`);
+
+    // 残高チェック（本番のみ）- 買い戻す分のJPYがあるか確認
+    if (!this.dryRun) {
+      try {
+        const balances = await bitflyer.getBalance();
+        const jpyBalance = balances.find(b => b.currency_code === 'JPY')?.available || 0;
+        
+        if (jpyBalance < requiredJpy) {
+          console.log(`[${this.name}] ⚠️ JPY残高不足 (必要: ¥${requiredJpy.toFixed(0)}, 利用可能: ¥${jpyBalance.toFixed(0)})`);
+          await notify.notifyInsufficientBalance(this.name, this.pair, 'COVER', `¥${requiredJpy.toFixed(0)}`, `¥${jpyBalance.toFixed(0)}`);
+          return;
+        }
+      } catch (error) {
+        console.error(`[${this.name}] ❌ 残高取得失敗:`, error.message);
+        await notify.notifyError(`${this.name}: 残高取得失敗 - ${error.message}`);
+        return;
+      }
+    }
 
     if (this.dryRun) {
       console.log(`[${this.name}] (DRY RUN)`);
     } else {
-      await bitflyer.sendOrder({
-        product_code: this.pair,
-        child_order_type: 'MARKET',
-        side: 'BUY',
-        size: size
-      });
+      try {
+        await bitflyer.sendOrder({
+          product_code: this.pair,
+          child_order_type: 'MARKET',
+          side: 'BUY',
+          size: size
+        });
+      } catch (error) {
+        console.error(`[${this.name}] ❌ ショートカバー失敗 - 状態更新スキップ`);
+        return;
+      }
     }
 
     // 状態更新
