@@ -76,7 +76,21 @@
         "gridSpacingPercent": 0.3,
         "orderSize": 0.001,
         "maxPosition": 0.005,
-        "takeProfitPercent": 0.3
+        "takeProfitPercent": 0.3,
+        "direction": "long"
+      }
+    },
+    "FX_BTC_SHORT": {
+      "pair": "FX_BTC_JPY",
+      "enabled": true,
+      "note": "📉 FXテスト - ショート（売り）グリッド",
+      "gridSettings": {
+        "gridCount": 5,
+        "gridSpacingPercent": 0.3,
+        "orderSize": 0.001,
+        "maxPosition": 0.005,
+        "takeProfitPercent": 0.3,
+        "direction": "short"
       }
     }
   }
