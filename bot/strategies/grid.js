@@ -6,7 +6,8 @@ const fs = require('fs');
 const path = require('path');
 
 const STATE_FILE = path.join(__dirname, '../data/grid-state.json');
-const REBALANCE_THRESHOLD = 5.0; // 5%ずれたらリバランス（頻繁なリセット防止）
+const REBALANCE_THRESHOLD_UP = 2.0; // 上方向2%でリバランス（チャンスを逃さない）
+const REBALANCE_THRESHOLD_DOWN = 5.0; // 下方向5%でリバランス（安定重視）
 const STOP_LOSS_THRESHOLD = -5; // -5%で損切り（安全重視）
 const DEFAULT_COMMISSION_RATE = 0.0015; // デフォルト手数料0.15%
 
@@ -183,9 +184,12 @@ class GridStrategy {
         return { success: true, price: currentPrice, action: 'stop_loss' };
       }
       
-      if (Math.abs(deviation) >= REBALANCE_THRESHOLD && this.state.position === 0) {
-        console.log(`[${this.name}] 🔄 自動リバランス（乖離: ${deviation.toFixed(1)}%）`);
-        await notify.sendDiscord(`🔄 **${this.name}** 自動リバランス（乖離: ${deviation.toFixed(1)}%）`);
+      // 上下方向で異なるリバランス閾値
+      const threshold = deviation > 0 ? REBALANCE_THRESHOLD_UP : REBALANCE_THRESHOLD_DOWN;
+      if (Math.abs(deviation) >= threshold && this.state.position === 0) {
+        const direction = deviation > 0 ? '📈上昇' : '📉下落';
+        console.log(`[${this.name}] 🔄 自動リバランス（${direction} 乖離: ${deviation.toFixed(1)}%）`);
+        await notify.sendDiscord(`🔄 **${this.name}** 自動リバランス（${direction} 乖離: ${deviation.toFixed(1)}%）`);
         await this.initializeGrid(currentPrice);
         return { success: true, price: currentPrice, action: 'rebalanced' };
       }
