@@ -1,8 +1,8 @@
 {
-  "version": 5,
-  "updatedAt": "2026-02-06T07:10:00+09:00",
+  "version": 6,
+  "updatedAt": "2026-02-06T09:16:00+09:00",
   "updatedBy": "stella",
-  "note": "🔄 リセット後の少額運用 - ETHのみ、残高チェック追加済み",
+  "note": "🛡️ トレンドフィルター追加 - 下落トレンド中は買わない",
   
   "bot": {
     "enabled": true,
@@ -22,13 +22,15 @@
     "ETH_AGGRESSIVE": {
       "pair": "ETH_JPY",
       "enabled": true,
-      "note": "🎯 少額運用 - 0.005 ETH/回（約¥1,500）",
+      "note": "🛡️ トレンドフィルター有効 - 下落中は買わない",
       "gridSettings": {
         "gridCount": 8,
-        "gridSpacingPercent": 0.2,
+        "gridSpacingPercent": 0.3,
         "orderSize": 0.01,
         "maxPosition": 0.05,
-        "takeProfitPercent": 0.2
+        "takeProfitPercent": 0.3,
+        "direction": "long",
+        "trendFollow": true
       }
     },
     "ETH_NORMAL": {

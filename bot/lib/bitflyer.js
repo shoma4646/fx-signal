@@ -81,6 +81,17 @@ class BitFlyer {
       product_code: productCode
     });
   }
+
+  // 取引手数料率を取得
+  async getTradingCommission(productCode) {
+    try {
+      const result = await this.callPrivate('GET', `/v1/me/gettradingcommission?product_code=${productCode}`);
+      return result.commission_rate || 0.0015; // デフォルト0.15%
+    } catch (error) {
+      console.error('[bitFlyer] 手数料取得エラー:', error.message);
+      return 0.0015; // エラー時はデフォルト0.15%
+    }
+  }
 }
 
 module.exports = new BitFlyer();

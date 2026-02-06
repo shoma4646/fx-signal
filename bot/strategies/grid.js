@@ -8,6 +8,7 @@ const path = require('path');
 const STATE_FILE = path.join(__dirname, '../data/grid-state.json');
 const REBALANCE_THRESHOLD = 3.0; // 3%ずれたらリバランス（頻繁なリセット防止）
 const STOP_LOSS_THRESHOLD = -5; // -5%で損切り（安全重視）
+const DEFAULT_COMMISSION_RATE = 0.0015; // デフォルト手数料0.15%
 
 class GridStrategy {
   constructor(name, pair, settings, dryRun = true) {
@@ -347,8 +348,13 @@ class GridStrategy {
 
   async executeSell(level, currentPrice) {
     const size = Math.min(this.settings.orderSize, this.state.position);
-    const profit = (currentPrice - this.state.avgBuyPrice) * size;
     const symbol = this.pair.replace('_JPY', '');
+    
+    // 手数料を考慮した損益計算
+    const grossProfit = (currentPrice - this.state.avgBuyPrice) * size;
+    const buyFee = this.state.avgBuyPrice * size * DEFAULT_COMMISSION_RATE;
+    const sellFee = currentPrice * size * DEFAULT_COMMISSION_RATE;
+    const profit = grossProfit - buyFee - sellFee;
 
     console.log(`[${this.name}] 🔴 売りシグナル Lv${level.level} @ ¥${currentPrice.toLocaleString()} (損益: ¥${profit.toFixed(0)})`);
 
@@ -402,7 +408,11 @@ class GridStrategy {
 
   async executeTakeProfit(currentPrice) {
     const size = this.state.position;
-    const profit = (currentPrice - this.state.avgBuyPrice) * size;
+    // 手数料を考慮した損益計算
+    const grossProfit = (currentPrice - this.state.avgBuyPrice) * size;
+    const buyFee = this.state.avgBuyPrice * size * DEFAULT_COMMISSION_RATE;
+    const sellFee = currentPrice * size * DEFAULT_COMMISSION_RATE;
+    const profit = grossProfit - buyFee - sellFee;
 
     console.log(`[${this.name}] 💰 利確！ @ ¥${currentPrice.toLocaleString()} (損益: ¥${profit.toFixed(0)})`);
 
@@ -507,7 +517,11 @@ class GridStrategy {
   // ショートカバー（買い戻し）実行
   async executeCover(level, currentPrice) {
     const size = Math.min(this.settings.orderSize, Math.abs(this.state.position));
-    const profit = (this.state.avgEntryPrice - currentPrice) * size;  // ショートは売値-買値
+    // 手数料を考慮した損益計算（ショートは売値-買値）
+    const grossProfit = (this.state.avgEntryPrice - currentPrice) * size;
+    const sellFee = this.state.avgEntryPrice * size * DEFAULT_COMMISSION_RATE;
+    const buyFee = currentPrice * size * DEFAULT_COMMISSION_RATE;
+    const profit = grossProfit - sellFee - buyFee;
     const requiredJpy = currentPrice * size * 1.01; // 手数料込みで1%余裕
 
     console.log(`[${this.name}] 🟢 ショートカバー Lv${level.level} @ ¥${currentPrice.toLocaleString()} (損益: ¥${profit.toFixed(0)})`);
@@ -563,7 +577,11 @@ class GridStrategy {
   // ショート利確実行
   async executeTakeProfitShort(currentPrice) {
     const size = Math.abs(this.state.position);
-    const profit = (this.state.avgEntryPrice - currentPrice) * size;
+    // 手数料を考慮した損益計算
+    const grossProfit = (this.state.avgEntryPrice - currentPrice) * size;
+    const sellFee = this.state.avgEntryPrice * size * DEFAULT_COMMISSION_RATE;
+    const buyFee = currentPrice * size * DEFAULT_COMMISSION_RATE;
+    const profit = grossProfit - sellFee - buyFee;
 
     console.log(`[${this.name}] 💰 ショート利確！ @ ¥${currentPrice.toLocaleString()} (損益: ¥${profit.toFixed(0)})`);
 
@@ -594,7 +612,11 @@ class GridStrategy {
   // 損切り実行
   async executeStopLoss(currentPrice) {
     const size = this.state.position;
-    const loss = (currentPrice - this.state.avgBuyPrice) * size;
+    // 手数料を考慮した損益計算
+    const grossLoss = (currentPrice - this.state.avgBuyPrice) * size;
+    const buyFee = this.state.avgBuyPrice * size * DEFAULT_COMMISSION_RATE;
+    const sellFee = currentPrice * size * DEFAULT_COMMISSION_RATE;
+    const loss = grossLoss - buyFee - sellFee;
 
     console.log(`[${this.name}] 🛑 損切り @ ¥${currentPrice.toLocaleString()} (損失: ¥${loss.toFixed(0)})`);
 
