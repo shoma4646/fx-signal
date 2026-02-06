@@ -25,10 +25,10 @@
       "note": "🛡️ トレンドフィルター有効 - 下落中は買わない",
       "gridSettings": {
         "gridCount": 8,
-        "gridSpacingPercent": 0.3,
+        "gridSpacingPercent": 0.5,
         "orderSize": 0.01,
         "maxPosition": 0.05,
-        "takeProfitPercent": 0.3,
+        "takeProfitPercent": 0.5,
         "direction": "long",
         "trendFollow": true
       }
@@ -51,10 +51,10 @@
       "note": "停止中",
       "gridSettings": {
         "gridCount": 5,
-        "gridSpacingPercent": 0.3,
+        "gridSpacingPercent": 0.5,
         "orderSize": 0.001,
         "maxPosition": 0.005,
-        "takeProfitPercent": 0.3
+        "takeProfitPercent": 0.5
       }
     },
     "BTC_AGGRESSIVE": {
