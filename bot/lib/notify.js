@@ -112,6 +112,19 @@ class Notify {
     console.log(`[Notify] 残高不足通知: ${strategyName}`);
   }
 
+  // 下落トレンドでbot停止通知
+  async notifyBotStopped(reason, trendInfo) {
+    const STELLA_ID = '1464669395543654430';
+    
+    let message = `<@${STELLA_ID}> 🛑 **Bot自動停止**\n`;
+    message += `- 理由: ${reason}\n`;
+    message += `- トレンド: ${trendInfo.trend} (${trendInfo.reason})\n`;
+    message += `\nトレンドが転換したら再開をお願いします 🙏`;
+    
+    await this.sendDiscord(message);
+    console.log(`[Notify] Bot停止通知: ${reason}`);
+  }
+
   // エラー通知
   async notifyError(error) {
     const message = `⚠️ **Botエラー**\n\`\`\`${error}\`\`\``;

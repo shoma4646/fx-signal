@@ -647,6 +647,23 @@ class GridStrategy {
     await notify.sendDiscord(`🛑 **${this.name} 損切り！** ¥${loss.toFixed(0)} | 下落トレンドのためグリッドリセット`);
     await safety.recordTrade(loss, 5000);
     
+    // 下落トレンドチェック → botを停止してステラに通知
+    if (!this.dryRun) {
+      const trendInfo = await analysis.getTrend(this.pair, currentPrice);
+      if (trendInfo.trend === 'bearish') {
+        console.log(`[${this.name}] 📉 下落トレンド継続中 → Bot停止`);
+        
+        // config.jsonを更新してbotを無効化
+        const configPath = path.join(__dirname, '../config.json');
+        const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        config.bot.enabled = false;
+        config.bot.pausedReason = `下落トレンドで損切り (${new Date().toISOString()})`;
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+        
+        await notify.notifyBotStopped('下落トレンドで損切り発生', trendInfo);
+      }
+    }
+    
     this.saveState();
   }
 
