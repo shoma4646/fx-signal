@@ -270,5 +270,29 @@
     "size": 0.01,
     "profit": null,
     "timestamp": "2026-02-06T03:24:18.360Z"
+  },
+  {
+    "pair": "ETH_JPY",
+    "side": "SELL",
+    "price": 301557,
+    "size": 0.05,
+    "profit": 42.37767000000174,
+    "timestamp": "2026-02-06T05:07:15.160Z"
+  },
+  {
+    "pair": "ETH_JPY",
+    "side": "BUY",
+    "price": 299768,
+    "size": 0.01,
+    "profit": null,
+    "timestamp": "2026-02-06T05:09:16.957Z"
+  },
+  {
+    "pair": "ETH_JPY",
+    "side": "SELL",
+    "price": 301808,
+    "size": 0.01,
+    "profit": 11.376360000000002,
+    "timestamp": "2026-02-06T05:12:48.747Z"
   }
 ]
