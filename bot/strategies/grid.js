@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 
 const STATE_FILE = path.join(__dirname, '../data/grid-state.json');
-const REBALANCE_THRESHOLD = 3.0; // 3%ずれたらリバランス（頻繁なリセット防止）
+const REBALANCE_THRESHOLD = 5.0; // 5%ずれたらリバランス（頻繁なリセット防止）
 const STOP_LOSS_THRESHOLD = -5; // -5%で損切り（安全重視）
 const DEFAULT_COMMISSION_RATE = 0.0015; // デフォルト手数料0.15%
 
