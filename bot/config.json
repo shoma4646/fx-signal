@@ -3,13 +3,11 @@
   "updatedAt": "2026-02-08T00:16:00+09:00",
   "updatedBy": "stella",
   "note": "📊 BTC FX対応追加 - テクニカル指標でロング/ショート判断",
-  
   "bot": {
     "enabled": true,
     "checkIntervalSec": 30,
     "dryRun": false
   },
-  
   "indicators": {
     "enabled": true,
     "rsi": {
@@ -27,7 +25,6 @@
       "signalPeriod": 9
     }
   },
-  
   "discord": {
     "enabled": true,
     "channelId": "1468225130088894567",
@@ -35,7 +32,6 @@
     "notifyOnError": true,
     "dailyReportHour": 9
   },
-  
   "strategies": {
     "ETH_AGGRESSIVE": {
       "pair": "ETH_JPY",
@@ -44,7 +40,7 @@
       "gridSettings": {
         "gridCount": 8,
         "gridSpacingPercent": 0.5,
-        "orderSize": 0.02,
+        "orderSize": 0.01,
         "maxPosition": 0.1,
         "takeProfitPercent": 0.5,
         "direction": "long",
