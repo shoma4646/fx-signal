@@ -157,23 +157,38 @@ class GridStrategy {
       // 自動リバランスチェック（基準から3%以上ずれたら）
       const deviation = analysis.calculateDeviation(currentPrice, this.state.basePrice);
       
-      // トレンドフォローチェック（FX戦略用）
+      // トレンドフォローチェック（テクニカル指標使用）
       if (this.trendFollow && this.state.position === 0) {
-        const trendInfo = await analysis.getTrend(this.pair, currentPrice);
+        // 拡張トレンド分析（RSI、BB、MACD考慮）
+        const buyCheck = await analysis.shouldBuy(this.pair, currentPrice);
         
-        // トレンドに逆らう場合はスキップ
-        if (this.direction === 'long' && trendInfo.trend === 'bearish') {
-          console.log(`[${this.name}] ⏸️ 下落トレンド中 → ロングスキップ (${trendInfo.reason})`);
-          return { success: true, price: currentPrice, action: 'trend_skip' };
-        }
-        if (this.direction === 'short' && trendInfo.trend === 'bullish') {
-          console.log(`[${this.name}] ⏸️ 上昇トレンド中 → ショートスキップ (${trendInfo.reason})`);
-          return { success: true, price: currentPrice, action: 'trend_skip' };
+        if (this.direction === 'long') {
+          if (!buyCheck.canBuy) {
+            // 指標の詳細も表示
+            const indicators = [];
+            if (buyCheck.rsi) indicators.push(`RSI:${buyCheck.rsi}`);
+            if (buyCheck.bb !== undefined) indicators.push(`BB%:${(buyCheck.bb * 100).toFixed(0)}`);
+            if (buyCheck.macd !== undefined) indicators.push(`MACD:${buyCheck.macd > 0 ? '+' : ''}${buyCheck.macd}`);
+            
+            console.log(`[${this.name}] ⏸️ 買い見送り (${buyCheck.reason})`);
+            if (indicators.length > 0) {
+              console.log(`[${this.name}]    📊 ${indicators.join(' | ')}`);
+            }
+            return { success: true, price: currentPrice, action: 'indicator_skip', reason: buyCheck.reason };
+          }
+          
+          // 買いOKの場合もログ
+          if (buyCheck.score !== 0) {
+            console.log(`[${this.name}] 📊 買い許可 (スコア: ${buyCheck.score}) ${buyCheck.action}`);
+          }
         }
         
-        // レンジ相場では両方稼働
-        if (trendInfo.trend !== 'neutral') {
-          console.log(`[${this.name}] 📊 トレンド: ${trendInfo.reason}`);
+        if (this.direction === 'short') {
+          const sellCheck = await analysis.shouldSell(this.pair, currentPrice);
+          if (!sellCheck.shouldSell && buyCheck.canBuy) {
+            console.log(`[${this.name}] ⏸️ ショート見送り (${buyCheck.reason})`);
+            return { success: true, price: currentPrice, action: 'indicator_skip', reason: buyCheck.reason };
+          }
         }
       }
       

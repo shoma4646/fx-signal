@@ -1,13 +1,31 @@
 {
-  "version": 6,
-  "updatedAt": "2026-02-06T09:16:00+09:00",
+  "version": 8,
+  "updatedAt": "2026-02-08T00:16:00+09:00",
   "updatedBy": "stella",
-  "note": "🛡️ トレンドフィルター追加 - 下落トレンド中は買わない",
+  "note": "📊 BTC FX対応追加 - テクニカル指標でロング/ショート判断",
   
   "bot": {
     "enabled": true,
     "checkIntervalSec": 30,
     "dryRun": false
+  },
+  
+  "indicators": {
+    "enabled": true,
+    "rsi": {
+      "period": 14,
+      "oversold": 30,
+      "overbought": 70
+    },
+    "bollingerBands": {
+      "period": 20,
+      "multiplier": 2
+    },
+    "macd": {
+      "fastPeriod": 12,
+      "slowPeriod": 26,
+      "signalPeriod": 9
+    }
   },
   
   "discord": {
@@ -22,12 +40,12 @@
     "ETH_AGGRESSIVE": {
       "pair": "ETH_JPY",
       "enabled": true,
-      "note": "🛡️ トレンドフィルター有効 - 下落中は買わない",
+      "note": "📊 指標強化版 - orderSize増量",
       "gridSettings": {
         "gridCount": 8,
         "gridSpacingPercent": 0.5,
-        "orderSize": 0.01,
-        "maxPosition": 0.05,
+        "orderSize": 0.02,
+        "maxPosition": 0.1,
         "takeProfitPercent": 0.5,
         "direction": "long",
         "trendFollow": true
@@ -67,6 +85,48 @@
         "orderSize": 0.001,
         "maxPosition": 0.005,
         "takeProfitPercent": 0.2
+      }
+    },
+    "BTCFX_LONG": {
+      "pair": "FX_BTC_JPY",
+      "enabled": false,
+      "note": "📈 BTC FX ロング戦略 - 指標で押し目買い",
+      "gridSettings": {
+        "gridCount": 6,
+        "gridSpacingPercent": 0.3,
+        "orderSize": 0.01,
+        "maxPosition": 0.05,
+        "takeProfitPercent": 0.5,
+        "direction": "long",
+        "trendFollow": true
+      }
+    },
+    "BTCFX_SHORT": {
+      "pair": "FX_BTC_JPY",
+      "enabled": false,
+      "note": "📉 BTC FX ショート戦略 - 指標で戻り売り",
+      "gridSettings": {
+        "gridCount": 6,
+        "gridSpacingPercent": 0.3,
+        "orderSize": 0.01,
+        "maxPosition": 0.05,
+        "takeProfitPercent": 0.5,
+        "direction": "short",
+        "trendFollow": true
+      }
+    },
+    "BTCFX_GRID": {
+      "pair": "FX_BTC_JPY",
+      "enabled": false,
+      "note": "📊 BTC FX グリッド - レンジ相場用",
+      "gridSettings": {
+        "gridCount": 10,
+        "gridSpacingPercent": 0.2,
+        "orderSize": 0.01,
+        "maxPosition": 0.1,
+        "takeProfitPercent": 0.3,
+        "direction": "long",
+        "trendFollow": true
       }
     }
   }
