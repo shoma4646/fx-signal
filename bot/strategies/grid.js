@@ -123,6 +123,15 @@ class GridStrategy {
       console.log(`[${this.name}]    ${emoji} ${g.type} Lv${g.level}: ¥${g.price.toLocaleString()}`);
     });
 
+    // ポジション0なら即座に最初の買いを入れる（機会損失防止）
+    if (this.direction === 'long' && this.state.position === 0) {
+      console.log(`[${this.name}] 🚀 ポジション0のため即座に買いエントリー`);
+      const firstBuyLevel = this.state.gridLevels.find(g => g.type === 'BUY' && g.level === 1);
+      if (firstBuyLevel) {
+        await this.executeBuy(firstBuyLevel, currentPrice);
+      }
+    }
+
     this.saveState();
   }
 
@@ -218,6 +227,15 @@ class GridStrategy {
         const buyLevels = this.state.gridLevels
           .filter(g => g.type === 'BUY' && !g.triggered)
           .sort((a, b) => b.price - a.price);
+
+        // ポジション0で買いレベルに達していない場合は即買い（機会損失防止）
+        if (this.state.position === 0 && buyLevels.length > 0) {
+          const highestBuyLevel = buyLevels[0]; // 一番高い買いレベル
+          if (currentPrice > highestBuyLevel.price) {
+            console.log(`[${this.name}] 🚀 ポジション0で買いレベル未到達 → 即エントリー`);
+            await this.executeBuy(highestBuyLevel, currentPrice);
+          }
+        }
 
         for (const level of buyLevels) {
           if (currentPrice <= level.price) {
