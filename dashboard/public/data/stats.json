@@ -1,8 +1,15 @@
 {
   "totalProfit": 676.6353500000095,
-  "tradeCount": 115,
+  "tradeCount": 116,
   "winCount": 35,
   "lossCount": 1,
-  "positions": [],
-  "lastUpdate": "2026-02-08T06:00:17.193Z"
+  "positions": [
+    {
+      "name": "ETH_AGGRESSIVE",
+      "position": 0.01,
+      "avgBuyPrice": 327373,
+      "totalProfit": 676.6353500000095
+    }
+  ],
+  "lastUpdate": "2026-02-08T07:00:18.969Z"
 }
