@@ -167,7 +167,8 @@ class GridStrategy {
       const deviation = analysis.calculateDeviation(currentPrice, this.state.basePrice);
       
       // トレンドフォローチェック（テクニカル指標使用）
-      if (this.trendFollow && this.state.position === 0) {
+      // トレンドフォロー：ポジションに関わらず買い前にチェック
+      if (this.trendFollow) {
         // 拡張トレンド分析（RSI、BB、MACD考慮）
         const buyCheck = await analysis.shouldBuy(this.pair, currentPrice);
         
