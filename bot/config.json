@@ -1,8 +1,8 @@
 {
-  "version": 7,
-  "updatedAt": "2026-02-09T00:58:40.622Z",
+  "version": 10,
+  "updatedAt": "2026-02-09T01:28:30.873Z",
   "updatedBy": "stella",
-  "note": "🚀 BTC FX ロング/ショート両建て開始",
+  "note": "📊 レンジ相場最適化: 0.4%間隔",
   "bot": {
     "enabled": true,
     "checkIntervalSec": 30,
@@ -36,13 +36,13 @@
     "ETH_AGGRESSIVE": {
       "pair": "ETH_JPY",
       "enabled": true,
-      "note": "📊 指標強化版 - orderSize増量",
+      "note": "📊 ヨコヨコ重視: spacing 0.4%",
       "gridSettings": {
-        "gridCount": 8,
-        "gridSpacingPercent": 0.5,
-        "orderSize": 0.01,
-        "maxPosition": 0.1,
-        "takeProfitPercent": 0.5,
+        "gridCount": 5,
+        "gridSpacingPercent": 0.4,
+        "orderSize": 0.03,
+        "maxPosition": 0.15,
+        "takeProfitPercent": 0.4,
         "direction": "long",
         "trendFollow": true
       }
@@ -85,7 +85,7 @@
     },
     "BTCFX_LONG": {
       "pair": "FX_BTC_JPY",
-      "enabled": true,
+      "enabled": false,
       "note": "📈 BTC FX ロング - 有効化",
       "gridSettings": {
         "gridCount": 6,
@@ -99,7 +99,7 @@
     },
     "BTCFX_SHORT": {
       "pair": "FX_BTC_JPY",
-      "enabled": true,
+      "enabled": false,
       "note": "📉 BTC FX ショート - 有効化",
       "gridSettings": {
         "gridCount": 6,
