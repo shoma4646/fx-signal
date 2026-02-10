@@ -10,6 +10,7 @@ const REBALANCE_THRESHOLD_UP = 2.0; // 上方向2%でリバランス（チャン
 const REBALANCE_THRESHOLD_DOWN = 5.0; // 下方向5%でリバランス（安定重視）
 const STOP_LOSS_THRESHOLD = -5; // -5%で損切り（安全重視）
 const DEFAULT_COMMISSION_RATE = 0.0015; // デフォルト手数料0.15%
+const MIN_PROFIT_RATE = 0.004; // 最低利益率0.4%（手数料0.3%+α）
 
 class GridStrategy {
   constructor(name, pair, settings, dryRun = true) {
@@ -252,8 +253,17 @@ class GridStrategy {
             .filter(g => g.type === 'SELL' && !g.triggered)
             .sort((a, b) => a.price - b.price);
 
+          // 最低利益価格を計算（手数料負け防止）
+          const avgPriceForMinProfit = this.state.avgEntryPrice || this.state.avgBuyPrice;
+          const minProfitPrice = avgPriceForMinProfit * (1 + MIN_PROFIT_RATE);
+
           for (const level of sellLevels) {
             if (currentPrice >= level.price) {
+              // 手数料負けチェック: 現在価格が最低利益価格を下回ってたら売らない
+              if (currentPrice < minProfitPrice) {
+                console.log(`[${this.name}] ⏸️ 売り見送り（手数料負け防止）現在: ¥${currentPrice.toLocaleString()} < 最低: ¥${Math.floor(minProfitPrice).toLocaleString()}`);
+                break;
+              }
               await this.executeSell(level, currentPrice);
               break;
             }

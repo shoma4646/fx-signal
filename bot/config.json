@@ -4,10 +4,9 @@
   "updatedBy": "stella",
   "note": "🛡️ リスク管理強化: ETHメイン+BTCサブ、トレンド転換待ち",
   "bot": {
-    "enabled": false,
+    "enabled": true,
     "checkIntervalSec": 30,
-    "dryRun": false,
-    "pausedReason": "トレンド転換待ち (ステラ判断)"
+    "dryRun": false
   },
   "indicators": {
     "enabled": true,
@@ -37,13 +36,13 @@
     "ETH_AGGRESSIVE": {
       "pair": "ETH_JPY",
       "enabled": true,
-      "note": "📈 メイン戦略 - 控えめ設定",
+      "note": "📈 メイン戦略 - 手数料負け対策済み",
       "gridSettings": {
-        "gridCount": 5,
-        "gridSpacingPercent": 0.4,
+        "gridCount": 4,
+        "gridSpacingPercent": 0.6,
         "orderSize": 0.02,
-        "maxPosition": 0.1,
-        "takeProfitPercent": 0.4,
+        "maxPosition": 0.08,
+        "takeProfitPercent": 0.6,
         "direction": "long",
         "trendFollow": true
       }
