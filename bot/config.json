@@ -4,9 +4,10 @@
   "updatedBy": "stella",
   "note": "📊 BTC現物グリッド追加 - 2通貨並行運用",
   "bot": {
-    "enabled": true,
+    "enabled": false,
     "checkIntervalSec": 30,
-    "dryRun": false
+    "dryRun": false,
+    "pausedReason": "下落トレンドで損切り (2026-02-10T06:48:31.304Z)"
   },
   "indicators": {
     "enabled": true,
