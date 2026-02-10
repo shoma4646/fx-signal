@@ -325,10 +325,13 @@ class GridStrategy {
 
   async executeBuy(level, currentPrice) {
     const size = this.settings.orderSize;
-    const price = currentPrice; // 成行相当
+    const useLimit = this.settings.useLimit || false;
+    // 指値の場合はグリッドレベル価格、成行の場合は現在価格
+    const price = useLimit ? level.price : currentPrice;
     const requiredJpy = price * size * 1.01; // 手数料込みで1%余裕
+    const orderType = useLimit ? '指値' : '成行';
 
-    console.log(`[${this.name}] 🟢 買いシグナル Lv${level.level} @ ¥${price.toLocaleString()}`);
+    console.log(`[${this.name}] 🟢 買いシグナル[${orderType}] Lv${level.level} @ ¥${price.toLocaleString()}`);
 
     // 残高チェック（本番のみ）
     if (!this.dryRun) {
@@ -349,15 +352,19 @@ class GridStrategy {
     }
 
     if (this.dryRun) {
-      console.log(`[${this.name}] (DRY RUN)`);
+      console.log(`[${this.name}] (DRY RUN) ${orderType}注文: ${size} @ ¥${price.toLocaleString()}`);
     } else {
       try {
-        await bitflyer.sendOrder({
+        const orderParams = {
           product_code: this.pair,
-          child_order_type: 'MARKET',
+          child_order_type: useLimit ? 'LIMIT' : 'MARKET',
           side: 'BUY',
           size: size
-        });
+        };
+        if (useLimit) {
+          orderParams.price = price;
+        }
+        await bitflyer.sendOrder(orderParams);
       } catch (error) {
         console.error(`[${this.name}] ❌ 買い注文失敗 - 状態更新スキップ`);
         return; // 注文失敗時は状態を更新しない
@@ -397,14 +404,19 @@ class GridStrategy {
   async executeSell(level, currentPrice) {
     const size = Math.min(this.settings.orderSize, this.state.position);
     const symbol = this.pair.replace('_JPY', '');
+    const useLimit = this.settings.useLimit || false;
+    // 指値の場合はグリッドレベル価格、成行の場合は現在価格
+    const price = useLimit ? level.price : currentPrice;
+    const orderType = useLimit ? '指値' : '成行';
     
-    // 手数料を考慮した損益計算
-    const grossProfit = (currentPrice - this.state.avgBuyPrice) * size;
-    const buyFee = this.state.avgBuyPrice * size * DEFAULT_COMMISSION_RATE;
-    const sellFee = currentPrice * size * DEFAULT_COMMISSION_RATE;
+    // 指値の場合は手数料ほぼ0で計算（Maker手数料）
+    const feeRate = useLimit ? 0 : DEFAULT_COMMISSION_RATE;
+    const grossProfit = (price - this.state.avgBuyPrice) * size;
+    const buyFee = this.state.avgBuyPrice * size * feeRate;
+    const sellFee = price * size * feeRate;
     const profit = grossProfit - buyFee - sellFee;
 
-    console.log(`[${this.name}] 🔴 売りシグナル Lv${level.level} @ ¥${currentPrice.toLocaleString()} (損益: ¥${profit.toFixed(0)})`);
+    console.log(`[${this.name}] 🔴 売りシグナル[${orderType}] Lv${level.level} @ ¥${price.toLocaleString()} (損益: ¥${profit.toFixed(0)})`);
 
     // 残高チェック（本番のみ）- 実際に持っているか確認
     if (!this.dryRun) {
@@ -425,15 +437,19 @@ class GridStrategy {
     }
 
     if (this.dryRun) {
-      console.log(`[${this.name}] (DRY RUN)`);
+      console.log(`[${this.name}] (DRY RUN) ${orderType}注文: ${size} @ ¥${price.toLocaleString()}`);
     } else {
       try {
-        await bitflyer.sendOrder({
+        const orderParams = {
           product_code: this.pair,
-          child_order_type: 'MARKET',
+          child_order_type: useLimit ? 'LIMIT' : 'MARKET',
           side: 'SELL',
           size: size
-        });
+        };
+        if (useLimit) {
+          orderParams.price = price;
+        }
+        await bitflyer.sendOrder(orderParams);
       } catch (error) {
         console.error(`[${this.name}] ❌ 売り注文失敗 - 状態更新スキップ`);
         return;

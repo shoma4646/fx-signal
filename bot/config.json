@@ -6,7 +6,9 @@
   "bot": {
     "enabled": true,
     "checkIntervalSec": 30,
-    "dryRun": false
+    "dryRun": true,
+    "useLimit": true,
+    "limitOrderTimeout": 60
   },
   "indicators": {
     "enabled": true,
@@ -36,15 +38,16 @@
     "ETH_AGGRESSIVE": {
       "pair": "ETH_JPY",
       "enabled": true,
-      "note": "📈 メイン戦略 - 手数料負け対策済み",
+      "note": "📈 スキャルピング - 指値注文版",
       "gridSettings": {
-        "gridCount": 4,
-        "gridSpacingPercent": 0.6,
+        "gridCount": 6,
+        "gridSpacingPercent": 0.15,
         "orderSize": 0.02,
-        "maxPosition": 0.08,
-        "takeProfitPercent": 0.6,
+        "maxPosition": 0.06,
+        "takeProfitPercent": 0.15,
         "direction": "long",
-        "trendFollow": true
+        "trendFollow": false,
+        "useLimit": true
       }
     },
     "ETH_NORMAL": {
