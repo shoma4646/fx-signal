@@ -1,13 +1,13 @@
 {
-  "version": 11,
-  "updatedAt": "2026-02-10T01:39:37.183Z",
+  "version": 12,
+  "updatedAt": "2026-02-10T08:01:51.548Z",
   "updatedBy": "stella",
-  "note": "📊 BTC現物グリッド追加 - 2通貨並行運用",
+  "note": "🛡️ リスク管理強化: ETHメイン+BTCサブ、トレンド転換待ち",
   "bot": {
     "enabled": false,
     "checkIntervalSec": 30,
     "dryRun": false,
-    "pausedReason": "下落トレンドで損切り (2026-02-10T06:48:31.304Z)"
+    "pausedReason": "トレンド転換待ち (ステラ判断)"
   },
   "indicators": {
     "enabled": true,
@@ -37,12 +37,12 @@
     "ETH_AGGRESSIVE": {
       "pair": "ETH_JPY",
       "enabled": true,
-      "note": "📊 ヨコヨコ重視: spacing 0.4%",
+      "note": "📈 メイン戦略 - 控えめ設定",
       "gridSettings": {
         "gridCount": 5,
         "gridSpacingPercent": 0.4,
-        "orderSize": 0.03,
-        "maxPosition": 0.15,
+        "orderSize": 0.02,
+        "maxPosition": 0.1,
         "takeProfitPercent": 0.4,
         "direction": "long",
         "trendFollow": true
@@ -129,12 +129,12 @@
     "BTC_GRID": {
       "pair": "BTC_JPY",
       "enabled": true,
-      "note": "📈 BTC現物グリッド - ETHと並行稼働",
+      "note": "📊 サブ戦略 - 控えめ設定",
       "gridSettings": {
         "gridCount": 5,
         "gridSpacingPercent": 0.4,
         "orderSize": 0.001,
-        "maxPosition": 0.005,
+        "maxPosition": 0.003,
         "takeProfitPercent": 0.4,
         "direction": "long",
         "trendFollow": true
