@@ -1830,5 +1830,37 @@
     "size": 0.001,
     "profit": null,
     "timestamp": "2026-02-11T19:13:14.469Z"
+  },
+  {
+    "pair": "BTC_JPY",
+    "side": "SELL",
+    "price": 10375881,
+    "size": 0.001,
+    "profit": 12.455634,
+    "timestamp": "2026-02-11T21:06:17.201Z"
+  },
+  {
+    "pair": "BTC_JPY",
+    "side": "BUY",
+    "price": 10365690,
+    "size": 0.001,
+    "profit": null,
+    "timestamp": "2026-02-11T21:06:47.634Z"
+  },
+  {
+    "pair": "BTC_JPY",
+    "side": "SELL",
+    "price": 10423481,
+    "size": 0.001,
+    "profit": 26.607243500000003,
+    "timestamp": "2026-02-11T21:25:34.629Z"
+  },
+  {
+    "pair": "BTC_JPY",
+    "side": "BUY",
+    "price": 10438320,
+    "size": 0.001,
+    "profit": null,
+    "timestamp": "2026-02-11T21:26:05.086Z"
   }
 ]
