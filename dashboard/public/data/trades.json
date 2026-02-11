@@ -1734,5 +1734,21 @@
     "size": 0.001,
     "profit": null,
     "timestamp": "2026-02-11T04:24:11.862Z"
+  },
+  {
+    "pair": "BTC_JPY",
+    "side": "BUY",
+    "price": 10316613,
+    "size": 0.001,
+    "profit": null,
+    "timestamp": "2026-02-11T06:02:47.389Z"
+  },
+  {
+    "pair": "BTC_JPY",
+    "side": "BUY",
+    "price": 10271705,
+    "size": 0.001,
+    "profit": null,
+    "timestamp": "2026-02-11T06:08:53.690Z"
   }
 ]
