@@ -38,16 +38,21 @@
     "ETH_AGGRESSIVE": {
       "pair": "ETH_JPY",
       "enabled": true,
-      "note": "📈 スキャルピング - 指値+トレンドフォロー",
+      "note": "📈 スキャルピング - レンジ相場専用",
       "gridSettings": {
-        "gridCount": 6,
-        "gridSpacingPercent": 0.15,
+        "gridCount": 4,
+        "gridSpacingPercent": 0.2,
         "orderSize": 0.02,
-        "maxPosition": 0.06,
-        "takeProfitPercent": 0.15,
+        "maxPosition": 0.04,
+        "takeProfitPercent": 0.2,
         "direction": "long",
         "trendFollow": true,
-        "useLimit": true
+        "useLimit": true,
+        "scalpingMode": true,
+        "maxDeviation": 0.5,
+        "rsiMin": 35,
+        "rsiMax": 65,
+        "stopLossPercent": 1.0
       }
     },
     "ETH_NORMAL": {

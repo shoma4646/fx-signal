@@ -173,6 +173,28 @@ class GridStrategy {
         // 拡張トレンド分析（RSI、BB、MACD考慮）
         const buyCheck = await analysis.shouldBuy(this.pair, currentPrice);
         
+        // スキャルピングモード：レンジ相場でのみ取引
+        const scalpingMode = this.settings.scalpingMode || false;
+        if (scalpingMode) {
+          const maxDev = this.settings.maxDeviation || 0.5;
+          const rsiMin = this.settings.rsiMin || 35;
+          const rsiMax = this.settings.rsiMax || 65;
+          
+          // MA乖離チェック（レンジ判定）
+          if (Math.abs(deviation) > maxDev) {
+            console.log(`[${this.name}] ⏸️ スキャルピング停止: MA乖離 ${deviation.toFixed(2)}% > ±${maxDev}%（レンジ外）`);
+            return { success: true, price: currentPrice, action: 'scalping_range_skip' };
+          }
+          
+          // RSI範囲チェック
+          if (buyCheck.rsi && (buyCheck.rsi < rsiMin || buyCheck.rsi > rsiMax)) {
+            console.log(`[${this.name}] ⏸️ スキャルピング停止: RSI ${buyCheck.rsi.toFixed(1)} が ${rsiMin}-${rsiMax} 範囲外`);
+            return { success: true, price: currentPrice, action: 'scalping_rsi_skip' };
+          }
+          
+          console.log(`[${this.name}] ✅ スキャルピング条件OK: 乖離${deviation.toFixed(2)}% RSI:${buyCheck.rsi?.toFixed(1) || 'N/A'}`);
+        }
+        
         if (this.direction === 'long') {
           if (!buyCheck.canBuy) {
             // 指標の詳細も表示
