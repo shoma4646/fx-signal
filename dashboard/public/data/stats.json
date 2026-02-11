@@ -1,7 +1,7 @@
 {
-  "totalProfit": -2440.8947370000083,
-  "tradeCount": 17,
-  "winCount": 56,
+  "totalProfit": -2390.4105250000084,
+  "tradeCount": 19,
+  "winCount": 57,
   "lossCount": 16,
   "positions": [
     {
@@ -13,9 +13,9 @@
     {
       "name": "BTC_GRID",
       "position": 0.001,
-      "avgBuyPrice": 10457606,
-      "totalProfit": -2443.578157000008
+      "avgBuyPrice": 10525865,
+      "totalProfit": -2393.0939450000083
     }
   ],
-  "lastUpdate": "2026-02-11T14:00:35.116Z"
+  "lastUpdate": "2026-02-11T15:00:04.345Z"
 }
