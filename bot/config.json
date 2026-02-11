@@ -38,7 +38,7 @@
     "ETH_AGGRESSIVE": {
       "pair": "ETH_JPY",
       "enabled": true,
-      "note": "📈 スキャルピング - 指値注文版",
+      "note": "📈 スキャルピング - 指値+トレンドフォロー",
       "gridSettings": {
         "gridCount": 6,
         "gridSpacingPercent": 0.15,
@@ -46,7 +46,7 @@
         "maxPosition": 0.06,
         "takeProfitPercent": 0.15,
         "direction": "long",
-        "trendFollow": false,
+        "trendFollow": true,
         "useLimit": true
       }
     },
