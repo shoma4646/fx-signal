@@ -1,13 +1,13 @@
 {
-  "version": 12,
-  "updatedAt": "2026-02-10T08:01:51.548Z",
+  "version": 13,
+  "updatedAt": "2026-02-12T07:12:00.000Z",
   "updatedBy": "stella",
-  "note": "🛡️ リスク管理強化: ETHメイン+BTCサブ、トレンド転換待ち",
+  "note": "🔧 成行注文に変更（指値メリット薄いため）",
   "bot": {
     "enabled": true,
     "checkIntervalSec": 30,
     "dryRun": true,
-    "useLimit": true,
+    "useLimit": false,
     "limitOrderTimeout": 60
   },
   "indicators": {
@@ -47,7 +47,7 @@
         "takeProfitPercent": 0.2,
         "direction": "long",
         "trendFollow": true,
-        "useLimit": true,
+        "useLimit": false,
         "scalpingMode": true,
         "maxDeviation": 1.5,
         "rsiMin": 30,

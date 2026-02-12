@@ -9,8 +9,8 @@ const STATE_FILE = path.join(__dirname, '../data/grid-state.json');
 const REBALANCE_THRESHOLD_UP = 2.0; // 上方向2%でリバランス（チャンスを逃さない）
 const REBALANCE_THRESHOLD_DOWN = 5.0; // 下方向5%でリバランス（安定重視）
 const STOP_LOSS_THRESHOLD = -5; // -5%で損切り（安全重視）
-const DEFAULT_COMMISSION_RATE = 0.0015; // デフォルト手数料0.15%
-const MIN_PROFIT_RATE = 0.004; // 最低利益率0.4%（手数料0.3%+α）
+const DEFAULT_COMMISSION_RATE = 0.0011; // bitFlyer手数料0.11%（API確認済み）
+const MIN_PROFIT_RATE = 0.003; // 最低利益率0.3%（手数料0.22%+α）
 
 class GridStrategy {
   constructor(name, pair, settings, dryRun = true) {
@@ -431,8 +431,8 @@ class GridStrategy {
     const price = useLimit ? level.price : currentPrice;
     const orderType = useLimit ? '指値' : '成行';
     
-    // 指値の場合は手数料ほぼ0で計算（Maker手数料）
-    const feeRate = useLimit ? 0 : DEFAULT_COMMISSION_RATE;
+    // bitFlyer Lightning現物は指値/成行とも同じ手数料
+    const feeRate = DEFAULT_COMMISSION_RATE;
     const grossProfit = (price - this.state.avgBuyPrice) * size;
     const buyFee = this.state.avgBuyPrice * size * feeRate;
     const sellFee = price * size * feeRate;
@@ -494,10 +494,12 @@ class GridStrategy {
 
   async executeTakeProfit(currentPrice) {
     const size = this.state.position;
-    // 手数料を考慮した損益計算
+    const useLimit = this.settings.useLimit || false;
+    // bitFlyer Lightning現物は指値/成行とも同じ手数料
+    const feeRate = DEFAULT_COMMISSION_RATE;
     const grossProfit = (currentPrice - this.state.avgBuyPrice) * size;
-    const buyFee = this.state.avgBuyPrice * size * DEFAULT_COMMISSION_RATE;
-    const sellFee = currentPrice * size * DEFAULT_COMMISSION_RATE;
+    const buyFee = this.state.avgBuyPrice * size * feeRate;
+    const sellFee = currentPrice * size * feeRate;
     const profit = grossProfit - buyFee - sellFee;
 
     console.log(`[${this.name}] 💰 利確！ @ ¥${currentPrice.toLocaleString()} (損益: ¥${profit.toFixed(0)})`);
