@@ -1,21 +1,20 @@
 {
-  "version": 13,
-  "updatedAt": "2026-02-12T07:12:00.000Z",
+  "version": 14,
+  "updatedAt": "2026-02-12T09:29:00.000Z",
   "updatedBy": "stella",
-  "note": "🔧 成行注文に変更（指値メリット薄いため）",
+  "note": "🔧 収益構造改善: ETH集中、利確幅拡大、RSI強化",
   "bot": {
     "enabled": true,
     "checkIntervalSec": 30,
     "dryRun": true,
-    "useLimit": false,
-    "limitOrderTimeout": 60
+    "useLimit": false
   },
   "indicators": {
     "enabled": true,
     "rsi": {
       "period": 14,
-      "oversold": 30,
-      "overbought": 70
+      "oversold": 25,
+      "overbought": 75
     },
     "bollingerBands": {
       "period": 20,
@@ -35,116 +34,46 @@
     "dailyReportHour": 9
   },
   "strategies": {
-    "ETH_AGGRESSIVE": {
+    "ETH_GRID": {
       "pair": "ETH_JPY",
       "enabled": true,
-      "note": "📈 スキャルピング - レンジ相場専用",
+      "note": "📈 メイン戦略 - 収益重視グリッド",
+      "gridSettings": {
+        "gridCount": 5,
+        "gridSpacingPercent": 0.5,
+        "orderSize": 0.03,
+        "maxPosition": 0.15,
+        "takeProfitPercent": 0.6,
+        "direction": "long",
+        "trendFollow": true,
+        "scalpingMode": false,
+        "rsiMin": 25,
+        "rsiMax": 75,
+        "stopLossPercent": 3.0
+      }
+    },
+    "ETH_AGGRESSIVE": {
+      "pair": "ETH_JPY",
+      "enabled": false,
+      "note": "停止 - 旧設定",
       "gridSettings": {
         "gridCount": 4,
         "gridSpacingPercent": 0.2,
         "orderSize": 0.02,
         "maxPosition": 0.04,
-        "takeProfitPercent": 0.2,
-        "direction": "long",
-        "trendFollow": true,
-        "useLimit": false,
-        "scalpingMode": true,
-        "maxDeviation": 1.5,
-        "rsiMin": 30,
-        "rsiMax": 70,
-        "stopLossPercent": 1.0
-      }
-    },
-    "ETH_NORMAL": {
-      "pair": "ETH_JPY",
-      "enabled": false,
-      "note": "停止中",
-      "gridSettings": {
-        "gridCount": 5,
-        "gridSpacingPercent": 0.5,
-        "orderSize": 0.01,
-        "maxPosition": 0.05,
-        "takeProfitPercent": 0.5
-      }
-    },
-    "BTC_NORMAL": {
-      "pair": "BTC_JPY",
-      "enabled": false,
-      "note": "停止中",
-      "gridSettings": {
-        "gridCount": 5,
-        "gridSpacingPercent": 0.5,
-        "orderSize": 0.001,
-        "maxPosition": 0.005,
-        "takeProfitPercent": 0.5
-      }
-    },
-    "BTC_AGGRESSIVE": {
-      "pair": "BTC_JPY",
-      "enabled": false,
-      "note": "停止中",
-      "gridSettings": {
-        "gridCount": 8,
-        "gridSpacingPercent": 0.2,
-        "orderSize": 0.001,
-        "maxPosition": 0.005,
         "takeProfitPercent": 0.2
-      }
-    },
-    "BTCFX_LONG": {
-      "pair": "FX_BTC_JPY",
-      "enabled": false,
-      "note": "📈 BTC FX ロング - 有効化",
-      "gridSettings": {
-        "gridCount": 6,
-        "gridSpacingPercent": 0.3,
-        "orderSize": 0.001,
-        "maxPosition": 0.01,
-        "takeProfitPercent": 0.5,
-        "direction": "long",
-        "trendFollow": true
-      }
-    },
-    "BTCFX_SHORT": {
-      "pair": "FX_BTC_JPY",
-      "enabled": false,
-      "note": "📉 BTC FX ショート - 有効化",
-      "gridSettings": {
-        "gridCount": 6,
-        "gridSpacingPercent": 0.3,
-        "orderSize": 0.001,
-        "maxPosition": 0.01,
-        "takeProfitPercent": 0.5,
-        "direction": "short",
-        "trendFollow": true
-      }
-    },
-    "BTCFX_GRID": {
-      "pair": "FX_BTC_JPY",
-      "enabled": false,
-      "note": "📊 BTC FX グリッド - レンジ相場用",
-      "gridSettings": {
-        "gridCount": 10,
-        "gridSpacingPercent": 0.2,
-        "orderSize": 0.01,
-        "maxPosition": 0.1,
-        "takeProfitPercent": 0.3,
-        "direction": "long",
-        "trendFollow": true
       }
     },
     "BTC_GRID": {
       "pair": "BTC_JPY",
-      "enabled": true,
-      "note": "📊 サブ戦略 - 控えめ設定",
+      "enabled": false,
+      "note": "停止 - ETH集中のため",
       "gridSettings": {
         "gridCount": 5,
         "gridSpacingPercent": 0.4,
         "orderSize": 0.001,
         "maxPosition": 0.003,
-        "takeProfitPercent": 0.4,
-        "direction": "long",
-        "trendFollow": true
+        "takeProfitPercent": 0.4
       }
     }
   }
