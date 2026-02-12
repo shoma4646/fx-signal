@@ -1,15 +1,15 @@
 {
-  "totalProfit": 26.70503999999999,
-  "tradeCount": 3,
-  "winCount": 70,
+  "totalProfit": 50.18824199999999,
+  "tradeCount": 5,
+  "winCount": 71,
   "lossCount": 50,
   "positions": [
     {
       "name": "ETH_GRID",
       "position": 0.03,
-      "avgBuyPrice": 304376,
-      "totalProfit": 26.70503999999999
+      "avgBuyPrice": 305830,
+      "totalProfit": 50.18824199999999
     }
   ],
-  "lastUpdate": "2026-02-12T10:01:35.817Z"
+  "lastUpdate": "2026-02-12T11:02:01.832Z"
 }
