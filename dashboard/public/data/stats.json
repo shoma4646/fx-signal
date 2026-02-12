@@ -1,14 +1,14 @@
 {
-  "totalProfit": -2323.813271500007,
-  "tradeCount": 65,
-  "winCount": 64,
-  "lossCount": 30,
+  "totalProfit": -2352.560891500007,
+  "tradeCount": 111,
+  "winCount": 68,
+  "lossCount": 49,
   "positions": [
     {
       "name": "ETH_AGGRESSIVE",
       "position": 0.02,
-      "avgBuyPrice": 301251,
-      "totalProfit": -59.29491000000233
+      "avgBuyPrice": 302540,
+      "totalProfit": -88.04253000000234
     },
     {
       "name": "BTC_GRID",
@@ -17,5 +17,5 @@
       "totalProfit": -2264.5183615000046
     }
   ],
-  "lastUpdate": "2026-02-12T06:02:08.018Z"
+  "lastUpdate": "2026-02-12T07:01:49.760Z"
 }
