@@ -186,9 +186,9 @@ class GridStrategy {
             return { success: true, price: currentPrice, action: 'scalping_range_skip' };
           }
           
-          // RSI範囲チェック
-          if (buyCheck.rsi && (buyCheck.rsi < rsiMin || buyCheck.rsi > rsiMax)) {
-            console.log(`[${this.name}] ⏸️ スキャルピング停止: RSI ${buyCheck.rsi.toFixed(1)} が ${rsiMin}-${rsiMax} 範囲外`);
+          // RSIチェック（買われすぎの時だけ買わない、売られすぎは買いチャンス）
+          if (buyCheck.rsi && buyCheck.rsi > rsiMax) {
+            console.log(`[${this.name}] ⏸️ スキャルピング停止: RSI ${buyCheck.rsi.toFixed(1)} > ${rsiMax}（買われすぎ）`);
             return { success: true, price: currentPrice, action: 'scalping_rsi_skip' };
           }
           

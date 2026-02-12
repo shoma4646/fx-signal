@@ -49,9 +49,9 @@
         "trendFollow": true,
         "useLimit": true,
         "scalpingMode": true,
-        "maxDeviation": 0.5,
-        "rsiMin": 35,
-        "rsiMax": 65,
+        "maxDeviation": 1.5,
+        "rsiMin": 30,
+        "rsiMax": 70,
         "stopLossPercent": 1.0
       }
     },
