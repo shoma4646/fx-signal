@@ -1,8 +1,8 @@
 {
-  "version": 14,
-  "updatedAt": "2026-02-12T09:29:00.000Z",
+  "version": 15,
+  "updatedAt": "2026-02-13T04:02:00.000Z",
   "updatedBy": "stella",
-  "note": "🔧 収益構造改善: ETH集中、利確幅拡大、RSI強化",
+  "note": "🔄 回転重視: グリッド狭め、低ボラ対応",
   "bot": {
     "enabled": true,
     "checkIntervalSec": 30,
@@ -37,13 +37,13 @@
     "ETH_GRID": {
       "pair": "ETH_JPY",
       "enabled": true,
-      "note": "📈 メイン戦略 - 収益重視グリッド",
+      "note": "📈 回転重視グリッド - 低ボラ対応",
       "gridSettings": {
         "gridCount": 5,
-        "gridSpacingPercent": 0.5,
+        "gridSpacingPercent": 0.35,
         "orderSize": 0.03,
         "maxPosition": 0.15,
-        "takeProfitPercent": 0.6,
+        "takeProfitPercent": 0.4,
         "direction": "long",
         "trendFollow": true,
         "scalpingMode": false,
