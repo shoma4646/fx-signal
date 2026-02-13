@@ -1,7 +1,7 @@
 {
-  "dailyLoss": 153.86353200000232,
-  "dailyProfit": 164.72046550000326,
-  "lastResetDate": "2026-02-12",
+  "dailyLoss": 0,
+  "dailyProfit": 0,
+  "lastResetDate": "2026-02-13",
   "isPaused": false,
   "pauseReason": null
 }
