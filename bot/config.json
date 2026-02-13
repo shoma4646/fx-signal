@@ -1,30 +1,12 @@
 {
-  "version": 15,
-  "updatedAt": "2026-02-13T04:02:00.000Z",
+  "version": 17,
+  "updatedAt": "2026-02-13T06:22:00.000Z",
   "updatedBy": "stella",
-  "note": "🔄 回転重視: グリッド狭め、低ボラ対応",
+  "note": "🔥 本気運用: RSI閾値緩和、少額で本番開始",
   "bot": {
     "enabled": true,
-    "checkIntervalSec": 30,
-    "dryRun": true,
-    "useLimit": false
-  },
-  "indicators": {
-    "enabled": true,
-    "rsi": {
-      "period": 14,
-      "oversold": 25,
-      "overbought": 75
-    },
-    "bollingerBands": {
-      "period": 20,
-      "multiplier": 2
-    },
-    "macd": {
-      "fastPeriod": 12,
-      "slowPeriod": 26,
-      "signalPeriod": 9
-    }
+    "checkIntervalSec": 60,
+    "dryRun": false
   },
   "discord": {
     "enabled": true,
@@ -34,45 +16,30 @@
     "dailyReportHour": 9
   },
   "strategies": {
-    "ETH_GRID": {
+    "ETH_RSI": {
       "pair": "ETH_JPY",
       "enabled": true,
-      "note": "📈 回転重視グリッド - 低ボラ対応",
+      "type": "rsi",
+      "note": "🎯 RSI逆張り - 売られすぎで買い、買われすぎで売り",
+      "rsiSettings": {
+        "rsiPeriod": 14,
+        "buyThreshold": 35,
+        "sellThreshold": 65,
+        "orderSize": 0.01,
+        "maxPosition": 0.05,
+        "cooldownMinutes": 30
+      }
+    },
+    "ETH_GRID": {
+      "pair": "ETH_JPY",
+      "enabled": false,
+      "type": "grid",
+      "note": "停止 - RSI戦略に移行",
       "gridSettings": {
         "gridCount": 5,
         "gridSpacingPercent": 0.35,
         "orderSize": 0.03,
         "maxPosition": 0.15,
-        "takeProfitPercent": 0.4,
-        "direction": "long",
-        "trendFollow": true,
-        "scalpingMode": false,
-        "rsiMin": 25,
-        "rsiMax": 75,
-        "stopLossPercent": 3.0
-      }
-    },
-    "ETH_AGGRESSIVE": {
-      "pair": "ETH_JPY",
-      "enabled": false,
-      "note": "停止 - 旧設定",
-      "gridSettings": {
-        "gridCount": 4,
-        "gridSpacingPercent": 0.2,
-        "orderSize": 0.02,
-        "maxPosition": 0.04,
-        "takeProfitPercent": 0.2
-      }
-    },
-    "BTC_GRID": {
-      "pair": "BTC_JPY",
-      "enabled": false,
-      "note": "停止 - ETH集中のため",
-      "gridSettings": {
-        "gridCount": 5,
-        "gridSpacingPercent": 0.4,
-        "orderSize": 0.001,
-        "maxPosition": 0.003,
         "takeProfitPercent": 0.4
       }
     }

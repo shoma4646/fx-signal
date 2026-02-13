@@ -4,6 +4,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const GridStrategy = require('./strategies/grid');
+const RSIStrategy = require('./strategies/rsi');
 const notify = require('./lib/notify');
 const bitflyer = require('./lib/bitflyer');
 const safety = require('./lib/safety');
@@ -42,12 +43,24 @@ class CryptoBot {
           continue;
         }
 
-        this.strategies[name] = new GridStrategy(
-          name,
-          settings.pair,
-          settings.gridSettings,
-          this.config.bot.dryRun
-        );
+        // 戦略タイプに応じてクラスを選択
+        const strategyType = settings.type || 'grid';
+        
+        if (strategyType === 'rsi') {
+          this.strategies[name] = new RSIStrategy(
+            name,
+            settings.pair,
+            settings.rsiSettings,
+            this.config.bot.dryRun
+          );
+        } else {
+          this.strategies[name] = new GridStrategy(
+            name,
+            settings.pair,
+            settings.gridSettings,
+            this.config.bot.dryRun
+          );
+        }
         console.log(`[${name}] ${settings.note || 'グリッド戦略を初期化'}`);
       }
     }
