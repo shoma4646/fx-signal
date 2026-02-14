@@ -4,19 +4,58 @@
  * 
  * @author Stella ✨
  * @created 2026-02-08
+ * @updated 2026-02-14 - RSIを1時間足ベースに修正
  */
 
 const bitflyer = require('./bitflyer');
+const axios = require('axios');
 
 class Indicators {
   constructor() {
     // 価格データのキャッシュ（API呼び出し削減）
     this.priceCache = new Map();
+    this.ohlcCache = new Map();
     this.cacheExpiry = 30 * 1000; // 30秒
+    this.ohlcCacheExpiry = 5 * 60 * 1000; // 5分（1時間足なので長めに）
   }
 
   /**
-   * 約定履歴を取得（キャッシュ付き）
+   * CryptoCompareから1時間足OHLCデータを取得
+   */
+  async getOHLCData(symbol, limit = 50) {
+    const cacheKey = `ohlc_${symbol}_${limit}`;
+    const cached = this.ohlcCache.get(cacheKey);
+    
+    if (cached && Date.now() - cached.time < this.ohlcCacheExpiry) {
+      return cached.data;
+    }
+
+    try {
+      // ETH_JPY → ETH, JPY に分解
+      const [fsym, tsym] = symbol.includes('_') ? symbol.split('_') : [symbol, 'JPY'];
+      
+      const response = await axios.get(
+        `https://min-api.cryptocompare.com/data/v2/histohour?fsym=${fsym}&tsym=${tsym}&limit=${limit}`
+      );
+      
+      if (response.data.Response === 'Success') {
+        const data = response.data.Data.Data;
+        this.ohlcCache.set(cacheKey, {
+          data,
+          time: Date.now()
+        });
+        return data;
+      }
+      
+      throw new Error('CryptoCompare API error');
+    } catch (error) {
+      console.error(`[Indicators] OHLC取得エラー: ${error.message}`);
+      return cached?.data || [];
+    }
+  }
+
+  /**
+   * 約定履歴を取得（キャッシュ付き）- BB/MACD用
    */
   async getExecutions(pair, count = 500) {
     const cacheKey = `${pair}_${count}`;
@@ -53,7 +92,7 @@ class Indicators {
   }
 
   /**
-   * RSI（相対力指数）を計算
+   * RSI（相対力指数）を計算 - 1時間足ベース
    * 
    * @param {string} pair - 通貨ペア
    * @param {number} period - 期間（デフォルト14）
@@ -61,20 +100,23 @@ class Indicators {
    */
   async getRSI(pair, period = 14) {
     try {
-      const executions = await this.getExecutions(pair, period * 10);
+      // 1時間足データを取得
+      const ohlcData = await this.getOHLCData(pair, period + 10);
       
-      if (executions.length < period + 1) {
+      if (ohlcData.length < period + 1) {
         return { value: 50, signal: 'neutral', error: 'データ不足' };
       }
 
-      const prices = this.toPriceArray(executions);
+      // 終値を抽出
+      const closes = ohlcData.map(d => d.close);
       
-      // 価格変動を計算
+      // 価格変動を計算（Wilder's smoothing method）
       let gains = 0;
       let losses = 0;
       
+      // 最初のperiod期間の平均を計算
       for (let i = 1; i <= period; i++) {
-        const change = prices[prices.length - i].price - prices[prices.length - i - 1].price;
+        const change = closes[closes.length - i] - closes[closes.length - i - 1];
         if (change > 0) {
           gains += change;
         } else {
@@ -97,9 +139,9 @@ class Indicators {
       // シグナル判定
       let signal = 'neutral';
       if (rsi <= 30) {
-        signal = 'oversold'; // 売られすぎ → 買いシグナル
+        signal = 'oversold';
       } else if (rsi >= 70) {
-        signal = 'overbought'; // 買われすぎ → 売りシグナル
+        signal = 'overbought';
       } else if (rsi <= 40) {
         signal = 'weak_oversold';
       } else if (rsi >= 60) {
@@ -111,7 +153,8 @@ class Indicators {
         signal,
         oversold: rsi <= 30,
         overbought: rsi >= 70,
-        description: this.describeRSI(rsi)
+        description: this.describeRSI(rsi),
+        timeframe: '1h'
       };
     } catch (error) {
       console.error(`[Indicators] RSI計算エラー: ${error.message}`);
@@ -130,24 +173,19 @@ class Indicators {
   }
 
   /**
-   * ボリンジャーバンドを計算
-   * 
-   * @param {string} pair - 通貨ペア
-   * @param {number} period - 移動平均期間（デフォルト20）
-   * @param {number} multiplier - 標準偏差の倍率（デフォルト2）
-   * @returns {object} { middle, upper, lower, width, percentB, signal }
+   * ボリンジャーバンドを計算 - 1時間足ベース
    */
   async getBollingerBands(pair, period = 20, multiplier = 2) {
     try {
-      const executions = await this.getExecutions(pair, period * 5);
+      const ohlcData = await this.getOHLCData(pair, period + 5);
       
-      if (executions.length < period) {
+      if (ohlcData.length < period) {
         return { error: 'データ不足' };
       }
 
-      const prices = this.toPriceArray(executions);
-      const recentPrices = prices.slice(-period).map(p => p.price);
-      const currentPrice = prices[prices.length - 1].price;
+      const closes = ohlcData.map(d => d.close);
+      const recentPrices = closes.slice(-period);
+      const currentPrice = closes[closes.length - 1];
 
       // 移動平均（中央線）
       const sma = recentPrices.reduce((a, b) => a + b, 0) / period;
@@ -160,7 +198,7 @@ class Indicators {
       // バンド計算
       const upper = sma + (multiplier * stdDev);
       const lower = sma - (multiplier * stdDev);
-      const width = ((upper - lower) / sma) * 100; // バンド幅（%）
+      const width = ((upper - lower) / sma) * 100;
 
       // %B（現在価格がバンドのどこにあるか）
       const percentB = (currentPrice - lower) / (upper - lower);
@@ -168,13 +206,13 @@ class Indicators {
       // シグナル判定
       let signal = 'neutral';
       if (currentPrice <= lower) {
-        signal = 'below_lower'; // 下限突破 → 買いシグナル
+        signal = 'below_lower';
       } else if (currentPrice >= upper) {
-        signal = 'above_upper'; // 上限突破 → 売りシグナル
+        signal = 'above_upper';
       } else if (percentB <= 0.2) {
-        signal = 'near_lower'; // 下限付近
+        signal = 'near_lower';
       } else if (percentB >= 0.8) {
-        signal = 'near_upper'; // 上限付近
+        signal = 'near_upper';
       }
 
       return {
@@ -185,7 +223,8 @@ class Indicators {
         percentB: Math.round(percentB * 100) / 100,
         signal,
         currentPrice,
-        description: this.describeBB(percentB, currentPrice, lower, upper)
+        description: this.describeBB(percentB, currentPrice, lower, upper),
+        timeframe: '1h'
       };
     } catch (error) {
       console.error(`[Indicators] ボリンジャーバンド計算エラー: ${error.message}`);
@@ -202,23 +241,17 @@ class Indicators {
   }
 
   /**
-   * MACD（移動平均収束拡散法）を計算
-   * 
-   * @param {string} pair - 通貨ペア
-   * @param {number} fastPeriod - 短期EMA期間（デフォルト12）
-   * @param {number} slowPeriod - 長期EMA期間（デフォルト26）
-   * @param {number} signalPeriod - シグナル線期間（デフォルト9）
-   * @returns {object} { macd, signal, histogram, crossover }
+   * MACD（移動平均収束拡散法）を計算 - 1時間足ベース
    */
   async getMACD(pair, fastPeriod = 12, slowPeriod = 26, signalPeriod = 9) {
     try {
-      const executions = await this.getExecutions(pair, 500);
+      const ohlcData = await this.getOHLCData(pair, slowPeriod + signalPeriod + 10);
       
-      if (executions.length < slowPeriod + signalPeriod) {
+      if (ohlcData.length < slowPeriod + signalPeriod) {
         return { error: 'データ不足' };
       }
 
-      const prices = this.toPriceArray(executions).map(p => p.price);
+      const prices = ohlcData.map(d => d.close);
 
       // EMA計算
       const fastEMA = this.calculateEMA(prices, fastPeriod);
@@ -244,30 +277,27 @@ class Indicators {
       // クロスオーバー判定
       let crossover = 'none';
       if (prevMACD <= prevSignal && currentMACD > currentSignal) {
-        crossover = 'golden'; // ゴールデンクロス → 買いシグナル
+        crossover = 'golden';
       } else if (prevMACD >= prevSignal && currentMACD < currentSignal) {
-        crossover = 'death'; // デッドクロス → 売りシグナル
+        crossover = 'death';
       }
 
-      // シグナル判定
-      let signal = 'neutral';
-      if (crossover === 'golden') {
-        signal = 'bullish';
-      } else if (crossover === 'death') {
-        signal = 'bearish';
-      } else if (histogram > 0 && histogram > macdLine[macdLine.length - 3] - signalLine[signalLine.length - 3]) {
-        signal = 'bullish_momentum'; // 上昇モメンタム
-      } else if (histogram < 0 && histogram < macdLine[macdLine.length - 3] - signalLine[signalLine.length - 3]) {
-        signal = 'bearish_momentum'; // 下落モメンタム
+      // トレンド判定
+      let trend = 'neutral';
+      if (histogram > 0) {
+        trend = 'bullish';
+      } else if (histogram < 0) {
+        trend = 'bearish';
       }
 
       return {
         macd: Math.round(currentMACD),
-        signalLine: Math.round(currentSignal),
+        signal: Math.round(currentSignal),
         histogram: Math.round(histogram),
         crossover,
-        signal,
-        description: this.describeMACD(crossover, histogram)
+        trend,
+        description: this.describeMACD(crossover, histogram),
+        timeframe: '1h'
       };
     } catch (error) {
       console.error(`[Indicators] MACD計算エラー: ${error.message}`);
@@ -298,137 +328,11 @@ class Indicators {
   }
 
   /**
-   * 総合シグナルを計算
-   * RSI、ボリンジャーバンド、MACDを組み合わせて判断
-   * 
-   * @param {string} pair - 通貨ペア
-   * @returns {object} { score, action, confidence, details }
-   */
-  async getCompositeSignal(pair) {
-    try {
-      const [rsi, bb, macd] = await Promise.all([
-        this.getRSI(pair),
-        this.getBollingerBands(pair),
-        this.getMACD(pair)
-      ]);
-
-      // スコア計算（-100〜+100、正は買い、負は売り）
-      let score = 0;
-      let signals = [];
-
-      // RSIスコア（-30〜+30）
-      if (rsi.value) {
-        if (rsi.value <= 30) {
-          score += 30;
-          signals.push({ name: 'RSI', score: 30, reason: `売られすぎ (${rsi.value})` });
-        } else if (rsi.value <= 40) {
-          score += 15;
-          signals.push({ name: 'RSI', score: 15, reason: `やや売られ気味 (${rsi.value})` });
-        } else if (rsi.value >= 70) {
-          score -= 30;
-          signals.push({ name: 'RSI', score: -30, reason: `買われすぎ (${rsi.value})` });
-        } else if (rsi.value >= 60) {
-          score -= 15;
-          signals.push({ name: 'RSI', score: -15, reason: `やや買われ気味 (${rsi.value})` });
-        }
-      }
-
-      // ボリンジャーバンドスコア（-30〜+30）
-      if (bb.percentB !== undefined) {
-        if (bb.signal === 'below_lower') {
-          score += 30;
-          signals.push({ name: 'BB', score: 30, reason: '下限ブレイク' });
-        } else if (bb.signal === 'near_lower') {
-          score += 20;
-          signals.push({ name: 'BB', score: 20, reason: '下限付近' });
-        } else if (bb.signal === 'above_upper') {
-          score -= 30;
-          signals.push({ name: 'BB', score: -30, reason: '上限ブレイク' });
-        } else if (bb.signal === 'near_upper') {
-          score -= 20;
-          signals.push({ name: 'BB', score: -20, reason: '上限付近' });
-        }
-      }
-
-      // MACDスコア（-40〜+40）
-      if (macd.crossover) {
-        if (macd.crossover === 'golden') {
-          score += 40;
-          signals.push({ name: 'MACD', score: 40, reason: 'ゴールデンクロス' });
-        } else if (macd.crossover === 'death') {
-          score -= 40;
-          signals.push({ name: 'MACD', score: -40, reason: 'デッドクロス' });
-        } else if (macd.signal === 'bullish_momentum') {
-          score += 20;
-          signals.push({ name: 'MACD', score: 20, reason: '上昇モメンタム' });
-        } else if (macd.signal === 'bearish_momentum') {
-          score -= 20;
-          signals.push({ name: 'MACD', score: -20, reason: '下落モメンタム' });
-        }
-      }
-
-      // アクション判定
-      let action = 'HOLD';
-      let confidence = 'low';
-
-      if (score >= 50) {
-        action = 'STRONG_BUY';
-        confidence = 'high';
-      } else if (score >= 30) {
-        action = 'BUY';
-        confidence = 'medium';
-      } else if (score >= 15) {
-        action = 'WEAK_BUY';
-        confidence = 'low';
-      } else if (score <= -50) {
-        action = 'STRONG_SELL';
-        confidence = 'high';
-      } else if (score <= -30) {
-        action = 'SELL';
-        confidence = 'medium';
-      } else if (score <= -15) {
-        action = 'WEAK_SELL';
-        confidence = 'low';
-      }
-
-      return {
-        score,
-        action,
-        confidence,
-        signals,
-        indicators: { rsi, bb, macd },
-        description: this.describeComposite(action, score, signals)
-      };
-    } catch (error) {
-      console.error(`[Indicators] 総合シグナル計算エラー: ${error.message}`);
-      return {
-        score: 0,
-        action: 'HOLD',
-        confidence: 'error',
-        error: error.message
-      };
-    }
-  }
-
-  describeComposite(action, score, signals) {
-    const signalText = signals.map(s => `${s.name}: ${s.reason}`).join(', ');
-    
-    switch (action) {
-      case 'STRONG_BUY': return `🔥 強い買いシグナル (スコア: ${score}) | ${signalText}`;
-      case 'BUY': return `💚 買いシグナル (スコア: ${score}) | ${signalText}`;
-      case 'WEAK_BUY': return `📗 弱い買いシグナル (スコア: ${score}) | ${signalText}`;
-      case 'STRONG_SELL': return `🔴 強い売りシグナル (スコア: ${score}) | ${signalText}`;
-      case 'SELL': return `🟠 売りシグナル (スコア: ${score}) | ${signalText}`;
-      case 'WEAK_SELL': return `📙 弱い売りシグナル (スコア: ${score}) | ${signalText}`;
-      default: return `⚪ 様子見 (スコア: ${score})`;
-    }
-  }
-
-  /**
    * キャッシュをクリア
    */
   clearCache() {
     this.priceCache.clear();
+    this.ohlcCache.clear();
   }
 }
 
