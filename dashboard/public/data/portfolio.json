@@ -11,13 +11,13 @@
       "currency": "BTC",
       "amount": 0.0049945,
       "available": 0.0049945,
-      "jpyValue": 51372
+      "jpyValue": 51394
     },
     {
       "currency": "ETH",
       "amount": 0.0896786,
       "available": 0.0896786,
-      "jpyValue": 26733
+      "jpyValue": 26712
     },
     {
       "currency": "SHIB",
@@ -33,9 +33,9 @@
     }
   ],
   "prices": {
-    "BTC": 10285666,
-    "ETH": 298103,
-    "XRP": 215.56
+    "BTC": 10290021,
+    "ETH": 297860,
+    "XRP": 215.68
   },
-  "fetchedAt": "2026-02-19T17:00:45.836Z"
+  "fetchedAt": "2026-02-19T18:00:40.074Z"
 }
