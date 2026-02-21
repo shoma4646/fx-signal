@@ -328,6 +328,200 @@ class Indicators {
   }
 
   /**
+   * 複合スコアリング - RSI、BB、MACDを統合して-100〜+100のスコアを返す
+   * 
+   * @param {string} pair - 通貨ペア
+   * @returns {object} { score, signal, components, description }
+   */
+  async getCompositeScore(pair) {
+    try {
+      // 各指標を並列で取得
+      const [rsi, bb, macd] = await Promise.all([
+        this.getRSI(pair),
+        this.getBollingerBands(pair),
+        this.getMACD(pair)
+      ]);
+
+      // エラーチェック
+      if (rsi.error && bb.error && macd.error) {
+        return { 
+          score: 0, 
+          signal: 'neutral', 
+          error: 'すべての指標でエラー',
+          components: { rsi, bb, macd }
+        };
+      }
+
+      let totalScore = 0;
+      const breakdown = [];
+
+      // ===== RSI スコア計算 (最大±30点) =====
+      let rsiScore = 0;
+      let rsiReason = '';
+      if (!rsi.error) {
+        const v = rsi.value;
+        if (v <= 20) {
+          rsiScore = 30;
+          rsiReason = `極度の売られすぎ (${v.toFixed(1)})`;
+        } else if (v <= 30) {
+          rsiScore = 25;
+          rsiReason = `売られすぎ (${v.toFixed(1)})`;
+        } else if (v <= 40) {
+          rsiScore = 10;
+          rsiReason = `やや売られ気味 (${v.toFixed(1)})`;
+        } else if (v >= 80) {
+          rsiScore = -30;
+          rsiReason = `極度の買われすぎ (${v.toFixed(1)})`;
+        } else if (v >= 70) {
+          rsiScore = -25;
+          rsiReason = `買われすぎ (${v.toFixed(1)})`;
+        } else if (v >= 60) {
+          rsiScore = -10;
+          rsiReason = `やや買われ気味 (${v.toFixed(1)})`;
+        } else {
+          rsiScore = 0;
+          rsiReason = `中立 (${v.toFixed(1)})`;
+        }
+        totalScore += rsiScore;
+        breakdown.push({ name: 'RSI', score: rsiScore, reason: rsiReason });
+      }
+
+      // ===== ボリンジャーバンド スコア計算 (最大±25点) =====
+      let bbScore = 0;
+      let bbReason = '';
+      if (!bb.error) {
+        const pB = bb.percentB;
+        if (pB <= 0) {
+          bbScore = 25;
+          bbReason = `下限ブレイク (%B: ${(pB * 100).toFixed(1)}%)`;
+        } else if (pB <= 0.1) {
+          bbScore = 20;
+          bbReason = `下限付近 (%B: ${(pB * 100).toFixed(1)}%)`;
+        } else if (pB <= 0.2) {
+          bbScore = 15;
+          bbReason = `やや下限寄り (%B: ${(pB * 100).toFixed(1)}%)`;
+        } else if (pB >= 1.0) {
+          bbScore = -25;
+          bbReason = `上限ブレイク (%B: ${(pB * 100).toFixed(1)}%)`;
+        } else if (pB >= 0.9) {
+          bbScore = -20;
+          bbReason = `上限付近 (%B: ${(pB * 100).toFixed(1)}%)`;
+        } else if (pB >= 0.8) {
+          bbScore = -15;
+          bbReason = `やや上限寄り (%B: ${(pB * 100).toFixed(1)}%)`;
+        } else {
+          bbScore = 0;
+          bbReason = `バンド内中央 (%B: ${(pB * 100).toFixed(1)}%)`;
+        }
+        totalScore += bbScore;
+        breakdown.push({ name: 'BB', score: bbScore, reason: bbReason });
+      }
+
+      // ===== MACD スコア計算 (クロス±25点 + ヒストグラム±10点 = 最大±35点) =====
+      let macdScore = 0;
+      let macdReason = '';
+      if (!macd.error) {
+        // クロスオーバー判定
+        if (macd.crossover === 'golden') {
+          macdScore += 25;
+          macdReason = 'ゴールデンクロス';
+        } else if (macd.crossover === 'death') {
+          macdScore -= 25;
+          macdReason = 'デッドクロス';
+        }
+
+        // ヒストグラムのトレンド（勢い）
+        if (macd.histogram > 0) {
+          macdScore += Math.min(10, Math.abs(macd.histogram) / 100);
+          macdReason += macdReason ? ' + 上昇勢い' : '上昇トレンド';
+        } else if (macd.histogram < 0) {
+          macdScore -= Math.min(10, Math.abs(macd.histogram) / 100);
+          macdReason += macdReason ? ' + 下落勢い' : '下落トレンド';
+        }
+
+        if (!macdReason) macdReason = '中立';
+        macdScore = Math.round(macdScore);
+        totalScore += macdScore;
+        breakdown.push({ name: 'MACD', score: macdScore, reason: macdReason });
+      }
+
+      // ===== 合計スコアを-100〜+100に正規化 =====
+      totalScore = Math.max(-100, Math.min(100, Math.round(totalScore)));
+
+      // ===== シグナル判定 =====
+      let signal;
+      if (totalScore >= 50) {
+        signal = 'strong_buy';
+      } else if (totalScore >= 20) {
+        signal = 'buy';
+      } else if (totalScore <= -50) {
+        signal = 'strong_sell';
+      } else if (totalScore <= -20) {
+        signal = 'sell';
+      } else {
+        signal = 'neutral';
+      }
+
+      // ===== 人間向け説明文生成 =====
+      const description = this.describeCompositeScore(totalScore, signal, breakdown);
+
+      return {
+        score: totalScore,
+        signal,
+        components: {
+          rsi: { value: rsi.value, score: rsiScore, signal: rsi.signal },
+          bb: { percentB: bb.percentB, score: bbScore, signal: bb.signal },
+          macd: { histogram: macd.histogram, crossover: macd.crossover, score: macdScore }
+        },
+        breakdown,
+        description,
+        timeframe: '1h'
+      };
+    } catch (error) {
+      console.error(`[Indicators] 複合スコア計算エラー: ${error.message}`);
+      return { score: 0, signal: 'neutral', error: error.message };
+    }
+  }
+
+  describeCompositeScore(score, signal, breakdown) {
+    const signalEmoji = {
+      strong_buy: '🔥🔥',
+      buy: '💚',
+      neutral: '➖',
+      sell: '🔴',
+      strong_sell: '💀💀'
+    };
+
+    const signalText = {
+      strong_buy: '強い買いシグナル！',
+      buy: '買い検討',
+      neutral: '様子見推奨',
+      sell: '売り検討',
+      strong_sell: '強い売りシグナル！'
+    };
+
+    const emoji = signalEmoji[signal] || '➖';
+    const text = signalText[signal] || '判定不能';
+    const details = breakdown.map(b => `${b.name}:${b.score > 0 ? '+' : ''}${b.score}`).join(' / ');
+
+    return `${emoji} ${text} (スコア: ${score}) [${details}]`;
+  }
+
+  /**
+   * getCompositeSignal - getCompositeScoreのエイリアス（互換性用）
+   */
+  async getCompositeSignal(pair) {
+    const result = await this.getCompositeScore(pair);
+    // 旧形式との互換性のため、追加フィールドを付与
+    return {
+      ...result,
+      action: result.signal,
+      confidence: Math.abs(result.score) >= 50 ? 'high' : Math.abs(result.score) >= 20 ? 'medium' : 'low',
+      signals: result.breakdown
+    };
+  }
+
+  /**
    * キャッシュをクリア
    */
   clearCache() {
