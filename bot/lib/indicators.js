@@ -15,8 +15,9 @@ class Indicators {
     // 価格データのキャッシュ（API呼び出し削減）
     this.priceCache = new Map();
     this.ohlcCache = new Map();
+    this.lastOhlcData = new Map(); // フォールバック用
     this.cacheExpiry = 30 * 1000; // 30秒
-    this.ohlcCacheExpiry = 5 * 60 * 1000; // 5分（1時間足なので長めに）
+    this.ohlcCacheExpiry = 10 * 60 * 1000; // 10分（1時間足なので長めに）
   }
 
   /**
@@ -35,7 +36,8 @@ class Indicators {
       const [fsym, tsym] = symbol.includes('_') ? symbol.split('_') : [symbol, 'JPY'];
       
       const response = await axios.get(
-        `https://min-api.cryptocompare.com/data/v2/histohour?fsym=${fsym}&tsym=${tsym}&limit=${limit}`
+        `https://min-api.cryptocompare.com/data/v2/histohour?fsym=${fsym}&tsym=${tsym}&limit=${limit}`,
+        { timeout: 10000 } // 10秒タイムアウト
       );
       
       if (response.data.Response === 'Success') {
@@ -44,13 +46,24 @@ class Indicators {
           data,
           time: Date.now()
         });
+        // フォールバック用に保存
+        this.lastOhlcData.set(cacheKey, data);
         return data;
       }
       
       throw new Error('CryptoCompare API error');
     } catch (error) {
+      // エラー時はキャッシュまたは最後のデータを使用
+      if (cached?.data) {
+        return cached.data;
+      }
+      const lastData = this.lastOhlcData.get(cacheKey);
+      if (lastData) {
+        console.log(`[Indicators] フォールバックデータ使用: ${cacheKey}`);
+        return lastData;
+      }
       console.error(`[Indicators] OHLC取得エラー: ${error.message}`);
-      return cached?.data || [];
+      return [];
     }
   }
 
