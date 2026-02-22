@@ -17,6 +17,7 @@ class CryptoBot {
     this.strategies = {};
     this.running = false;
     this.configLastModified = null;
+    this.lastReportDate = null; // 日次レポート重複防止
   }
 
   loadConfig() {
@@ -128,6 +129,9 @@ class CryptoBot {
       return;
     }
 
+    // 日次レポートチェック
+    await this.checkDailyReport();
+
     // セーフティチェック
     if (!safety.canTrade()) {
       const status = safety.getStatus();
@@ -199,6 +203,74 @@ class CryptoBot {
 
   sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * 日次レポートをチェック・送信
+   */
+  async checkDailyReport() {
+    if (!this.config.discord?.enabled || !this.config.discord?.dailyReportHour) {
+      return;
+    }
+
+    const now = new Date();
+    const hour = now.getHours();
+    const today = now.toISOString().split('T')[0];
+
+    // 指定時刻（デフォルト9時）かつ、今日まだ送ってない場合
+    if (hour === this.config.discord.dailyReportHour && this.lastReportDate !== today) {
+      this.lastReportDate = today;
+      await this.sendDailyReport();
+    }
+  }
+
+  /**
+   * 日次レポート送信
+   */
+  async sendDailyReport() {
+    console.log('\n📊 日次レポート生成中...');
+    
+    let report = `📊 **日次レポート** (${new Date().toLocaleDateString('ja-JP')})\n\n`;
+
+    // 残高
+    try {
+      const balances = await bitflyer.getBalance();
+      report += '💰 **残高:**\n';
+      for (const b of balances) {
+        if (b.amount > 0 && ['JPY', 'BTC', 'ETH'].includes(b.currency_code)) {
+          const formatted = b.currency_code === 'JPY' 
+            ? `¥${Math.floor(b.amount).toLocaleString()}`
+            : b.amount;
+          report += `・${b.currency_code}: ${formatted}\n`;
+        }
+      }
+    } catch (e) {
+      report += '💰 残高取得エラー\n';
+    }
+
+    // 戦略状態
+    report += '\n📈 **戦略状況:**\n';
+    for (const [name, strategy] of Object.entries(this.strategies)) {
+      const stats = strategy.getStats();
+      const ticker = await bitflyer.getTicker(stats.pair).catch(() => null);
+      const price = ticker?.ltp;
+      
+      report += `\n**${name}** (${stats.pair.replace('_JPY', '')})\n`;
+      if (price) report += `・現在価格: ¥${price.toLocaleString()}\n`;
+      report += `・ポジション: ${stats.position || 'なし'}\n`;
+      if (stats.position > 0 && stats.avgBuyPrice) {
+        const pnl = ((price - stats.avgBuyPrice) / stats.avgBuyPrice * 100).toFixed(1);
+        report += `・含み損益: ${pnl}%\n`;
+      }
+      report += `・累計損益: ¥${Math.floor(stats.totalProfit).toLocaleString()}\n`;
+      report += `・取引回数: ${stats.tradeCount}回\n`;
+    }
+
+    report += '\n───────────────────\n';
+    report += '🤖 本日も監視継続します';
+
+    await notify.sendDiscord(report);
+    console.log('✅ 日次レポート送信完了');
   }
 }
 
