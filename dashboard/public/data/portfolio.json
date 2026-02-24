@@ -1,5 +1,5 @@
 {
-  "totalJPY": 102415,
+  "totalJPY": 102640,
   "assets": [
     {
       "currency": "JPY",
@@ -11,13 +11,13 @@
       "currency": "BTC",
       "amount": 0.0049945,
       "available": 0.0049945,
-      "jpyValue": 49860
+      "jpyValue": 50024
     },
     {
       "currency": "ETH",
       "amount": 0.0504396,
       "available": 0.0504396,
-      "jpyValue": 14545
+      "jpyValue": 14606
     },
     {
       "currency": "SHIB",
@@ -33,9 +33,9 @@
     }
   ],
   "prices": {
-    "BTC": 9983074,
-    "ETH": 288369,
-    "XRP": 210.94
+    "BTC": 10015853,
+    "ETH": 289582,
+    "XRP": 211.64
   },
-  "fetchedAt": "2026-02-24T16:00:03.928Z"
+  "fetchedAt": "2026-02-24T17:00:06.966Z"
 }
