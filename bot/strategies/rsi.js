@@ -14,6 +14,11 @@ const TRAILING_TRIGGER = 5;          // トレーリング発動: +5%
 const TRAILING_STOP = 3;             // トレーリング確定: +3%
 const SUPER_OVERSOLD_RSI = 25;       // 超売られすぎ（ナンピン条件）
 
+// 注文サイズを丸める（bitFlyer最小単位: 0.0000001）
+function roundSize(size) {
+  return Math.floor(size * 10000000) / 10000000;
+}
+
 class RSIStrategy {
   constructor(name, pair, settings, dryRun = true) {
     this.name = name;
@@ -273,7 +278,7 @@ class RSIStrategy {
    */
   async executeSellWithScore(price, composite) {
     const { score, signal, description } = composite;
-    const size = Math.min(this.settings.orderSize, this.state.position);
+    const size = roundSize(Math.min(this.settings.orderSize, this.state.position));
     const symbol = this.pair.replace('_JPY', '');
 
     // 利益計算
@@ -391,7 +396,7 @@ class RSIStrategy {
   }
 
   async executeSell(price, rsi) {
-    const size = Math.min(this.settings.orderSize, this.state.position);
+    const size = roundSize(Math.min(this.settings.orderSize, this.state.position));
     const symbol = this.pair.replace('_JPY', '');
 
     // 利益計算
@@ -461,7 +466,7 @@ class RSIStrategy {
    * 🛑 損切り実行
    */
   async executeStopLoss(price, profitPercent) {
-    const size = this.state.position;
+    const size = roundSize(this.state.position);
     const symbol = this.pair.replace('_JPY', '');
     const grossProfit = (price - this.state.avgBuyPrice) * size;
     const fee = (this.state.avgBuyPrice + price) * size * DEFAULT_COMMISSION_RATE;
@@ -504,7 +509,7 @@ class RSIStrategy {
    * 📈 トレーリングストップ実行
    */
   async executeTrailingStop(price, profitPercent) {
-    const size = this.state.position;
+    const size = roundSize(this.state.position);
     const symbol = this.pair.replace('_JPY', '');
     const grossProfit = (price - this.state.avgBuyPrice) * size;
     const fee = (this.state.avgBuyPrice + price) * size * DEFAULT_COMMISSION_RATE;
