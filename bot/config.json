@@ -1,8 +1,8 @@
 {
-  "version": 17,
-  "updatedAt": "2026-02-13T06:22:00.000Z",
+  "version": 18,
+  "updatedAt": "2026-02-26T07:52:00.000Z",
   "updatedBy": "stella",
-  "note": "🔥 本気運用: RSI閾値緩和、少額で本番開始",
+  "note": "🚀 RSI逆張り + EMAトレンドフォローの2本立て",
   "bot": {
     "enabled": true,
     "checkIntervalSec": 60,
@@ -28,6 +28,17 @@
         "orderSize": 0.01,
         "maxPosition": 0.05,
         "cooldownMinutes": 30
+      }
+    },
+    "ETH_TREND": {
+      "pair": "ETH_JPY",
+      "enabled": true,
+      "type": "ema-trend",
+      "note": "📈 EMAクロス - トレンドフォロー戦略",
+      "emaTrendSettings": {
+        "orderSize": 0.01,
+        "maxPosition": 0.03,
+        "cooldownMinutes": 60
       }
     },
     "ETH_GRID": {

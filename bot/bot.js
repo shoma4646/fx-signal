@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const GridStrategy = require('./strategies/grid');
 const RSIStrategy = require('./strategies/rsi');
+const EMATrendStrategy = require('./strategies/ema-trend');
 const notify = require('./lib/notify');
 const bitflyer = require('./lib/bitflyer');
 const safety = require('./lib/safety');
@@ -52,6 +53,13 @@ class CryptoBot {
             name,
             settings.pair,
             settings.rsiSettings,
+            this.config.bot.dryRun
+          );
+        } else if (strategyType === 'ema-trend') {
+          this.strategies[name] = new EMATrendStrategy(
+            name,
+            settings.pair,
+            settings.emaTrendSettings,
             this.config.bot.dryRun
           );
         } else {
