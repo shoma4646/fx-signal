@@ -2,7 +2,7 @@
   "totalProfit": 0,
   "tradeCount": 2,
   "winCount": 88,
-  "lossCount": 55,
+  "lossCount": 56,
   "positions": [
     {
       "name": "ETH_GRID",
@@ -11,5 +11,5 @@
       "totalProfit": 0
     }
   ],
-  "lastUpdate": "2026-03-08T12:00:25.155Z"
+  "lastUpdate": "2026-03-08T13:00:05.857Z"
 }
