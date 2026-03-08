@@ -467,6 +467,13 @@ class RSIStrategy {
    */
   async executeStopLoss(price, profitPercent) {
     const size = roundSize(this.state.position);
+    if (size <= 0) {
+      this.state.position = 0;
+      this.state.trailingActive = false;
+      this.saveState();
+      return;
+    }
+
     const symbol = this.pair.replace('_JPY', '');
     const grossProfit = (price - this.state.avgBuyPrice) * size;
     const fee = (this.state.avgBuyPrice + price) * size * DEFAULT_COMMISSION_RATE;
@@ -475,6 +482,22 @@ class RSIStrategy {
     console.log(`[${this.name}] 🛑 損切り実行: ${size} ${symbol} @ ¥${price.toLocaleString()} (損失: ¥${profit.toFixed(0)})`);
 
     if (!this.dryRun) {
+      // 残高チェック
+      try {
+        const balances = await bitflyer.getBalance();
+        const cryptoBalance = balances.find(b => b.currency_code === symbol)?.available || 0;
+        if (cryptoBalance < size) {
+          console.log(`[${this.name}] ⚠️ ${symbol}残高不足 - stateリセット`);
+          this.state.position = 0;
+          this.state.avgBuyPrice = 0;
+          this.state.trailingActive = false;
+          this.saveState();
+          return;
+        }
+      } catch (e) {
+        console.error(`[${this.name}] 残高取得失敗:`, e.message);
+      }
+
       try {
         await bitflyer.sendOrder({
           product_code: this.pair,
@@ -484,6 +507,10 @@ class RSIStrategy {
         });
       } catch (error) {
         console.error(`[${this.name}] ❌ 損切り注文失敗`);
+        this.state.position = 0;
+        this.state.avgBuyPrice = 0;
+        this.state.trailingActive = false;
+        this.saveState();
         return;
       }
     } else {
@@ -510,6 +537,13 @@ class RSIStrategy {
    */
   async executeTrailingStop(price, profitPercent) {
     const size = roundSize(this.state.position);
+    if (size <= 0) {
+      this.state.position = 0;
+      this.state.trailingActive = false;
+      this.saveState();
+      return;
+    }
+
     const symbol = this.pair.replace('_JPY', '');
     const grossProfit = (price - this.state.avgBuyPrice) * size;
     const fee = (this.state.avgBuyPrice + price) * size * DEFAULT_COMMISSION_RATE;
@@ -518,6 +552,22 @@ class RSIStrategy {
     console.log(`[${this.name}] 📈 トレーリング利確: ${size} ${symbol} @ ¥${price.toLocaleString()} (利益: ¥${profit.toFixed(0)})`);
 
     if (!this.dryRun) {
+      // 残高チェック
+      try {
+        const balances = await bitflyer.getBalance();
+        const cryptoBalance = balances.find(b => b.currency_code === symbol)?.available || 0;
+        if (cryptoBalance < size) {
+          console.log(`[${this.name}] ⚠️ ${symbol}残高不足 - stateリセット`);
+          this.state.position = 0;
+          this.state.avgBuyPrice = 0;
+          this.state.trailingActive = false;
+          this.saveState();
+          return;
+        }
+      } catch (e) {
+        console.error(`[${this.name}] 残高取得失敗:`, e.message);
+      }
+
       try {
         await bitflyer.sendOrder({
           product_code: this.pair,
@@ -527,6 +577,10 @@ class RSIStrategy {
         });
       } catch (error) {
         console.error(`[${this.name}] ❌ トレーリング注文失敗`);
+        this.state.position = 0;
+        this.state.avgBuyPrice = 0;
+        this.state.trailingActive = false;
+        this.saveState();
         return;
       }
     } else {

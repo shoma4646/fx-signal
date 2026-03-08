@@ -205,7 +205,11 @@ class EMATrendStrategy {
 
   async executeSell(price, reason) {
     const size = roundSize(this.state.position);
-    if (size <= 0) return;
+    if (size <= 0) {
+      this.state.position = 0;
+      this.saveState();
+      return;
+    }
 
     const grossProfit = (price - this.state.avgBuyPrice) * size;
     const fee = (this.state.avgBuyPrice + price) * size * DEFAULT_COMMISSION_RATE;
@@ -215,6 +219,22 @@ class EMATrendStrategy {
     console.log(`[${this.name}] 🔴 売り: ${reason} (損益: ¥${profit.toFixed(0)})`);
 
     if (!this.dryRun) {
+      // 残高チェック
+      try {
+        const symbol = this.pair.replace('_JPY', '');
+        const balances = await bitflyer.getBalance();
+        const cryptoBalance = balances.find(b => b.currency_code === symbol)?.available || 0;
+        if (cryptoBalance < size) {
+          console.log(`[${this.name}] ⚠️ ${symbol}残高不足 - stateリセット`);
+          this.state.position = 0;
+          this.state.avgBuyPrice = 0;
+          this.saveState();
+          return;
+        }
+      } catch (e) {
+        console.error(`[${this.name}] 残高取得失敗:`, e.message);
+      }
+
       try {
         await bitflyer.sendOrder({
           product_code: this.pair,
@@ -224,6 +244,9 @@ class EMATrendStrategy {
         });
       } catch (error) {
         console.error(`[${this.name}] ❌ 売り注文失敗:`, error.message);
+        this.state.position = 0;
+        this.state.avgBuyPrice = 0;
+        this.saveState();
         return;
       }
     } else {
@@ -248,11 +271,35 @@ class EMATrendStrategy {
 
   async executeStopLoss(price, profitPercent) {
     const size = roundSize(this.state.position);
+    if (size <= 0) {
+      this.state.position = 0;
+      this.state.trailingActive = false;
+      this.saveState();
+      return;
+    }
+
     const grossProfit = (price - this.state.avgBuyPrice) * size;
     const fee = (this.state.avgBuyPrice + price) * size * DEFAULT_COMMISSION_RATE;
     const profit = grossProfit - fee;
 
     if (!this.dryRun) {
+      // 残高チェック
+      try {
+        const symbol = this.pair.replace('_JPY', '');
+        const balances = await bitflyer.getBalance();
+        const cryptoBalance = balances.find(b => b.currency_code === symbol)?.available || 0;
+        if (cryptoBalance < size) {
+          console.log(`[${this.name}] ⚠️ ${symbol}残高不足 (必要: ${size}, 利用可能: ${cryptoBalance}) - stateリセット`);
+          this.state.position = 0;
+          this.state.avgBuyPrice = 0;
+          this.state.trailingActive = false;
+          this.saveState();
+          return;
+        }
+      } catch (e) {
+        console.error(`[${this.name}] 残高取得失敗:`, e.message);
+      }
+
       try {
         await bitflyer.sendOrder({
           product_code: this.pair,
@@ -262,6 +309,10 @@ class EMATrendStrategy {
         });
       } catch (error) {
         console.error(`[${this.name}] ❌ 損切り注文失敗:`, error.message);
+        this.state.position = 0;
+        this.state.avgBuyPrice = 0;
+        this.state.trailingActive = false;
+        this.saveState();
         return;
       }
     }
@@ -283,11 +334,37 @@ class EMATrendStrategy {
 
   async executeTrailingStop(price, profitPercent) {
     const size = roundSize(this.state.position);
+    if (size <= 0) {
+      // ポジションがない場合はスキップ（stateリセット）
+      this.state.position = 0;
+      this.state.trailingActive = false;
+      this.saveState();
+      return;
+    }
+
     const grossProfit = (price - this.state.avgBuyPrice) * size;
     const fee = (this.state.avgBuyPrice + price) * size * DEFAULT_COMMISSION_RATE;
     const profit = grossProfit - fee;
 
     if (!this.dryRun) {
+      // 残高チェック
+      try {
+        const symbol = this.pair.replace('_JPY', '');
+        const balances = await bitflyer.getBalance();
+        const cryptoBalance = balances.find(b => b.currency_code === symbol)?.available || 0;
+        if (cryptoBalance < size) {
+          console.log(`[${this.name}] ⚠️ ${symbol}残高不足 (必要: ${size}, 利用可能: ${cryptoBalance}) - stateリセット`);
+          // 残高不足時はstateをリセットして無限ループを防ぐ
+          this.state.position = 0;
+          this.state.avgBuyPrice = 0;
+          this.state.trailingActive = false;
+          this.saveState();
+          return;
+        }
+      } catch (e) {
+        console.error(`[${this.name}] 残高取得失敗:`, e.message);
+      }
+
       try {
         await bitflyer.sendOrder({
           product_code: this.pair,
@@ -297,6 +374,11 @@ class EMATrendStrategy {
         });
       } catch (error) {
         console.error(`[${this.name}] ❌ トレーリング注文失敗:`, error.message);
+        // 注文失敗時もstateをリセットして無限ループを防ぐ
+        this.state.position = 0;
+        this.state.avgBuyPrice = 0;
+        this.state.trailingActive = false;
+        this.saveState();
         return;
       }
     }
