@@ -7,11 +7,12 @@ const path = require('path');
 const STATE_FILE = path.join(__dirname, '../data/rsi-state.json');
 const DEFAULT_COMMISSION_RATE = 0.0011; // 0.11%
 
-// ステラ流・最強戦略の定数
+// ステラ流・最強戦略の定数 v2（損小利大へ改善）
 const STOP_LOSS_PERCENT = -7;        // 損切りライン: -7%
-const MIN_PROFIT_PERCENT = 0.5;      // 最低利益: +0.5%（手数料負け防止）
-const TRAILING_TRIGGER = 5;          // トレーリング発動: +5%
-const TRAILING_STOP = 3;             // トレーリング確定: +3%
+const MIN_PROFIT_PERCENT = 1.5;      // 最低利益: +1.5%（薄利売り防止）
+const PARTIAL_TAKE_PROFIT = 2.0;     // 分割利確: +2%で半分売り
+const TRAILING_TRIGGER = 3;          // トレーリング発動: +3%（早めに発動）
+const TRAILING_STOP = 1.5;           // トレーリング確定: +1.5%
 const SUPER_OVERSOLD_RSI = 25;       // 超売られすぎ（ナンピン条件）
 
 // 注文サイズを丸める（bitFlyer最小単位: 0.0000001）
@@ -47,7 +48,8 @@ class RSIStrategy {
       lastUpdate: null,
       // ステラ流追加
       maxProfitPercent: 0,    // 最大到達利益%（トレーリング用）
-      trailingActive: false   // トレーリング発動フラグ
+      trailingActive: false,  // トレーリング発動フラグ
+      partialSold: false      // 分割利確済みフラグ
     };
   }
 
@@ -127,7 +129,14 @@ class RSIStrategy {
         return { success: true, action: 'stop_loss', price: currentPrice, profitPercent };
       }
 
-      // 📈 トレーリングストップ: +5%到達後、+3%まで下がったら利確
+      // 💰 分割利確: +2%で半分売り（1回だけ）
+      if (profitPercent >= PARTIAL_TAKE_PROFIT && !this.state.partialSold && this.state.position >= 0.02) {
+        console.log(`[${this.name}] 💰 分割利確！ +${profitPercent.toFixed(1)}% で半分売り`);
+        await this.executePartialTakeProfit(currentPrice, profitPercent);
+        return { success: true, action: 'partial_take_profit', price: currentPrice, profitPercent };
+      }
+
+      // 📈 トレーリングストップ: +3%到達後、+1.5%まで下がったら利確
       if (this.state.trailingActive && profitPercent <= TRAILING_STOP) {
         console.log(`[${this.name}] 📈 トレーリング利確！ ${profitPercent.toFixed(1)}% (最大: +${this.state.maxProfitPercent.toFixed(1)}%)`);
         await this.executeTrailingStop(currentPrice, profitPercent);
@@ -274,6 +283,56 @@ class RSIStrategy {
   }
 
   /**
+   * 💰 分割利確（+2%で半分売り）
+   */
+  async executePartialTakeProfit(price, profitPercent) {
+    const halfPosition = roundSize(this.state.position / 2);
+    if (halfPosition <= 0) return;
+
+    const symbol = this.pair.replace('_JPY', '');
+    const grossProfit = (price - this.state.avgBuyPrice) * halfPosition;
+    const fee = (this.state.avgBuyPrice + price) * halfPosition * DEFAULT_COMMISSION_RATE;
+    const profit = grossProfit - fee;
+
+    console.log(`[${this.name}] 💰 分割利確: ${halfPosition} ${symbol} @ ¥${price.toLocaleString()} (利益: ¥${profit.toFixed(0)})`);
+
+    if (!this.dryRun) {
+      try {
+        const balances = await bitflyer.getBalance();
+        const cryptoBalance = balances.find(b => b.currency_code === symbol)?.available || 0;
+        if (cryptoBalance < halfPosition) {
+          console.log(`[${this.name}] ⚠️ ${symbol}残高不足 - 分割利確スキップ`);
+          return;
+        }
+
+        await bitflyer.sendOrder({
+          product_code: this.pair,
+          child_order_type: 'MARKET',
+          side: 'SELL',
+          size: halfPosition
+        });
+      } catch (error) {
+        console.error(`[${this.name}] ❌ 分割利確注文失敗:`, error.message);
+        return;
+      }
+    } else {
+      console.log(`[${this.name}] (DRY RUN) 分割利確: ${halfPosition} @ ¥${price.toLocaleString()}`);
+    }
+
+    // 状態更新（平均取得価格は維持、ポジションだけ減らす）
+    this.state.position = roundSize(this.state.position - halfPosition);
+    this.state.totalProfit += profit;
+    this.state.tradeCount++;
+    this.state.partialSold = true;  // 分割利確済みフラグ
+    this.state.lastAction = 'PARTIAL_SELL';
+    this.state.lastActionTime = new Date().toISOString();
+    this.saveState();
+
+    await notify.notifyTrade(this.pair, 'SELL', price, halfPosition, profit);
+    await notify.sendDiscord(`💰 **${this.name}** 分割利確！ +${profitPercent.toFixed(1)}% で半分売り @ ¥${price.toLocaleString()} (利益: ¥${profit.toFixed(0)})`);
+  }
+
+  /**
    * 複合スコアを使った売り実行
    */
   async executeSellWithScore(price, composite) {
@@ -329,7 +388,7 @@ class RSIStrategy {
     // 状態更新
     this.state.position -= size;
     if (this.state.position <= 0) {
-      this.state.position = 0;
+      this.state.position = 0; this.state.partialSold = false;
       this.state.avgBuyPrice = 0;
       this.state.maxProfitPercent = 0;
       this.state.trailingActive = false;
@@ -447,7 +506,7 @@ class RSIStrategy {
     // 状態更新
     this.state.position -= size;
     if (this.state.position <= 0) {
-      this.state.position = 0;
+      this.state.position = 0; this.state.partialSold = false;
       this.state.avgBuyPrice = 0;
       this.state.maxProfitPercent = 0;
       this.state.trailingActive = false;
@@ -468,7 +527,7 @@ class RSIStrategy {
   async executeStopLoss(price, profitPercent) {
     const size = roundSize(this.state.position);
     if (size <= 0) {
-      this.state.position = 0;
+      this.state.position = 0; this.state.partialSold = false;
       this.state.trailingActive = false;
       this.saveState();
       return;
@@ -488,7 +547,7 @@ class RSIStrategy {
         const cryptoBalance = balances.find(b => b.currency_code === symbol)?.available || 0;
         if (cryptoBalance < size) {
           console.log(`[${this.name}] ⚠️ ${symbol}残高不足 - stateリセット`);
-          this.state.position = 0;
+          this.state.position = 0; this.state.partialSold = false;
           this.state.avgBuyPrice = 0;
           this.state.trailingActive = false;
           this.saveState();
@@ -507,7 +566,7 @@ class RSIStrategy {
         });
       } catch (error) {
         console.error(`[${this.name}] ❌ 損切り注文失敗`);
-        this.state.position = 0;
+        this.state.position = 0; this.state.partialSold = false;
         this.state.avgBuyPrice = 0;
         this.state.trailingActive = false;
         this.saveState();
@@ -520,7 +579,7 @@ class RSIStrategy {
     // 状態リセット
     this.state.totalProfit += profit;
     this.state.tradeCount++;
-    this.state.position = 0;
+    this.state.position = 0; this.state.partialSold = false;
     this.state.avgBuyPrice = 0;
     this.state.maxProfitPercent = 0;
     this.state.trailingActive = false;
@@ -538,7 +597,7 @@ class RSIStrategy {
   async executeTrailingStop(price, profitPercent) {
     const size = roundSize(this.state.position);
     if (size <= 0) {
-      this.state.position = 0;
+      this.state.position = 0; this.state.partialSold = false;
       this.state.trailingActive = false;
       this.saveState();
       return;
@@ -558,7 +617,7 @@ class RSIStrategy {
         const cryptoBalance = balances.find(b => b.currency_code === symbol)?.available || 0;
         if (cryptoBalance < size) {
           console.log(`[${this.name}] ⚠️ ${symbol}残高不足 - stateリセット`);
-          this.state.position = 0;
+          this.state.position = 0; this.state.partialSold = false;
           this.state.avgBuyPrice = 0;
           this.state.trailingActive = false;
           this.saveState();
@@ -577,7 +636,7 @@ class RSIStrategy {
         });
       } catch (error) {
         console.error(`[${this.name}] ❌ トレーリング注文失敗`);
-        this.state.position = 0;
+        this.state.position = 0; this.state.partialSold = false;
         this.state.avgBuyPrice = 0;
         this.state.trailingActive = false;
         this.saveState();
@@ -590,7 +649,7 @@ class RSIStrategy {
     // 状態リセット
     this.state.totalProfit += profit;
     this.state.tradeCount++;
-    this.state.position = 0;
+    this.state.position = 0; this.state.partialSold = false;
     this.state.avgBuyPrice = 0;
     this.state.maxProfitPercent = 0;
     this.state.trailingActive = false;
