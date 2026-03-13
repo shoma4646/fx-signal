@@ -4,3 +4,19 @@ bot/data/
 dashboard/.next/
 dashboard/out/
 *.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+uv.lock
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,58 @@
+# Stella Trader 設定ファイル (サンプル)
+#
+# このファイルをconfig.tomlにコピーして、環境に合わせて値を変更してください。
+# 機密情報(APIキー等)は.envファイルに記載することを推奨します。
+#
+# cp config.example.toml config.toml
+
+# 実行モード: "live" (本番取引), "paper" (ペーパートレード), "backtest" (バックテスト)
+mode = "paper"
+
+# メインループの実行間隔(秒)
+check_interval_sec = 60
+
+# --- 取引所設定 ---
+[exchange]
+# APIキーとシークレットは.envファイルでの設定を推奨:
+#   STELLA_EXCHANGE__API_KEY=your_api_key
+#   STELLA_EXCHANGE__API_SECRET=your_api_secret
+api_key = ""
+api_secret = ""
+# テストネットモード (本番運用時はfalseに変更)
+testnet = true
+
+# --- 戦略設定 ---
+[[strategies]]
+name = "trend_follow"
+pairs = ["BTC/USDT"]
+
+[strategies.params]
+ema_short = 9
+ema_long = 21
+adx_period = 14
+adx_threshold = 25.0
+atr_period = 14
+stop_loss_atr_mult = 2.0
+trailing_atr_mult = 3.0
+trailing_stop_atr_mult = 1.5
+cooldown_minutes = 60
+risk_pct = 0.02
+
+# --- 安全機構設定 ---
+[safety]
+# 日次損失上限(口座残高に対する%)
+daily_loss_limit_pct = 5.0
+# 最大ドローダウン(%)。超過時に自動停止
+max_drawdown_pct = 20.0
+# 1トレードあたりのリスク(口座残高に対する%)
+risk_per_trade_pct = 2.0
+# ボラティリティ急変時の取引停止閾値(ATRの倍数)
+volatility_pause_atr_multiplier = 3.0
+
+# --- 通知設定 ---
+[notify]
+# Discord WebhookのURL (.envファイルでの設定を推奨)
+#   STELLA_NOTIFY__DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+discord_webhook_url = ""
+# 日次レポートの送信時刻(時、UTC)
+daily_report_hour = 9
