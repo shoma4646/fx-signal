@@ -69,66 +69,77 @@ class TradingEngine:
         try:
             from stella.exchange.bybit import BybitExchange
 
-            exchange_config = getattr(self._config, "exchange", {})
+            exchange_config = getattr(self._config, "exchange", None)
             if isinstance(exchange_config, dict):
-                self._exchange = BybitExchange(exchange_config)
+                api_key = exchange_config.get("api_key", "")
+                api_secret = exchange_config.get("api_secret", "")
+                testnet = exchange_config.get("testnet", True)
             else:
-                self._exchange = BybitExchange(
-                    {
-                        "api_key": getattr(exchange_config, "api_key", ""),
-                        "api_secret": getattr(exchange_config, "api_secret", ""),
-                        "testnet": getattr(exchange_config, "testnet", True),
-                    }
-                )
+                api_key = getattr(exchange_config, "api_key", "")
+                api_secret = getattr(exchange_config, "api_secret", "")
+                testnet = getattr(exchange_config, "testnet", True)
+
+            is_paper = getattr(self._config, "mode", "paper") == "paper"
+            self._exchange = BybitExchange(
+                api_key=api_key,
+                api_secret=api_secret,
+                testnet=testnet,
+                paper=is_paper,
+            )
             if hasattr(self._exchange, "initialize"):
                 await self._exchange.initialize()
-            logger.info("取引所クライアントを初期化しました")
+            logger.info("取引所クライアントを初期化しました", paper=is_paper)
         except ImportError:
             logger.warning("取引所モジュールが見つかりません。モックモードで動作します。")
             self._exchange = None
 
         # ポートフォリオマネージャーの初期化
-        portfolio_config = getattr(self._config, "portfolio", {})
-        if isinstance(portfolio_config, dict):
-            self._portfolio = PortfolioManager(portfolio_config)
-        else:
-            self._portfolio = PortfolioManager(
-                {
-                    "max_positions": getattr(portfolio_config, "max_positions", 3),
-                    "max_position_pct": getattr(portfolio_config, "max_position_pct", 0.3),
-                }
-            )
+        self._portfolio = PortfolioManager(
+            initial_balance=10000.0,
+            max_positions=3,
+        )
 
         # 安全機構の初期化
-        safety_config = getattr(self._config, "safety", {})
-        if isinstance(safety_config, dict):
-            self._safety = SafetyManager(safety_config)
-        else:
-            self._safety = SafetyManager(
-                {
-                    "daily_loss_limit_pct": getattr(safety_config, "daily_loss_limit_pct", 0.05),
-                    "max_drawdown_pct": getattr(safety_config, "max_drawdown_pct", 0.20),
-                }
+        from stella.core.safety import SafetyConfig as SafetyDataConfig
+
+        safety_cfg = getattr(self._config, "safety", None)
+        if safety_cfg is not None and not isinstance(safety_cfg, dict):
+            safety_data_config = SafetyDataConfig(
+                daily_loss_limit=getattr(safety_cfg, "daily_loss_limit_pct", 5.0) / 100,
+                max_drawdown=getattr(safety_cfg, "max_drawdown_pct", 20.0) / 100,
+                max_trade_risk=getattr(safety_cfg, "risk_per_trade_pct", 2.0) / 100,
+                volatility_multiplier=getattr(safety_cfg, "volatility_pause_atr_multiplier", 3.0),
             )
+        else:
+            safety_data_config = SafetyDataConfig()
+
+        self._safety = SafetyManager(safety_data_config, self._portfolio)
 
         # 戦略の初期化
         strategy_configs = getattr(self._config, "strategies", [])
         if not strategy_configs:
             # デフォルトでトレンドフォロー戦略を追加
             self._strategies.append(TrendStrategy())
+            self._trading_pairs = ["BTC/USDT"]
             logger.info("デフォルトのトレンドフォロー戦略を追加しました")
         else:
-            for strategy_config in strategy_configs:
-                if isinstance(strategy_config, dict):
-                    strategy_type = strategy_config.get("type", "trend")
+            self._trading_pairs = []
+            for sc in strategy_configs:
+                if isinstance(sc, dict):
+                    strategy_name = sc.get("name", "trend_follow")
+                    pairs = sc.get("pairs", ["BTC/USDT"])
+                    params = sc.get("params", {})
                 else:
-                    strategy_type = getattr(strategy_config, "type", "trend")
-                    strategy_config = dict(strategy_config) if hasattr(strategy_config, "__iter__") else {}
+                    strategy_name = getattr(sc, "name", "trend_follow")
+                    pairs = getattr(sc, "pairs", ["BTC/USDT"])
+                    params = getattr(sc, "params", {})
 
-                if strategy_type == "trend":
-                    self._strategies.append(TrendStrategy(strategy_config))
+                self._trading_pairs.extend(p for p in pairs if p not in self._trading_pairs)
+
+                if "trend" in strategy_name:
+                    self._strategies.append(TrendStrategy(params))
                 else:
-                    logger.warning("未知の戦略タイプです", strategy_type=strategy_type)
+                    logger.warning("未知の戦略タイプです", strategy_name=strategy_name)
 
         # Discord通知の初期化
         discord_webhook = getattr(self._config, "discord_webhook_url", None)
@@ -276,13 +287,12 @@ class TradingEngine:
         # 注文の実行
         try:
             if self._exchange is not None:
-                if signal.action == "buy":
-                    order = await self._exchange.create_market_buy(
-                        signal.symbol, quantity
-                    )
-                elif signal.action == "sell":
-                    order = await self._exchange.create_market_sell(
-                        signal.symbol, quantity
+                if signal.action in ("buy", "sell"):
+                    order = await self._exchange.create_order(
+                        symbol=signal.symbol,
+                        order_type="market",
+                        side=signal.action,
+                        amount=quantity,
                     )
                 else:
                     return
@@ -360,19 +370,16 @@ class TradingEngine:
         """
         import pandas as pd
 
-        trading_pairs = getattr(self._config, "trading_pairs", ["BTC/USDT", "ETH/USDT"])
-        timeframe = getattr(self._config, "timeframe", "1h")
-        ohlcv_limit = getattr(self._config, "ohlcv_limit", 100)
+        trading_pairs = getattr(self, "_trading_pairs", ["BTC/USDT"])
+        timeframe = "1h"
+        ohlcv_limit = 100
         result: dict[str, Any] = {}
 
         for symbol in trading_pairs:
             try:
-                if self._exchange and hasattr(self._exchange, "fetch_ohlcv"):
-                    raw = await self._exchange.fetch_ohlcv(
+                if self._exchange and hasattr(self._exchange, "get_ohlcv"):
+                    df = await self._exchange.get_ohlcv(
                         symbol, timeframe=timeframe, limit=ohlcv_limit
-                    )
-                    df = pd.DataFrame(
-                        raw, columns=["timestamp", "open", "high", "low", "close", "volume"]
                     )
                     df["symbol"] = symbol
                     result[symbol] = df
@@ -391,15 +398,12 @@ class TradingEngine:
         """ポートフォリオを取引所と同期する。"""
         if self._exchange and self._portfolio:
             try:
-                if hasattr(self._exchange, "fetch_balance"):
-                    balance = await self._exchange.fetch_balance()
-                    if hasattr(self._portfolio, "sync_balance"):
+                if hasattr(self._exchange, "get_balance"):
+                    balance = await self._exchange.get_balance()
+                    if hasattr(self._portfolio, "sync_with_exchange"):
+                        await self._portfolio.sync_with_exchange(self._exchange)
+                    elif hasattr(self._portfolio, "sync_balance"):
                         self._portfolio.sync_balance(balance)
-
-                if hasattr(self._exchange, "fetch_positions"):
-                    positions = await self._exchange.fetch_positions()
-                    if hasattr(self._portfolio, "sync_positions"):
-                        self._portfolio.sync_positions(positions)
 
                 logger.debug("ポートフォリオを同期しました")
             except Exception as e:

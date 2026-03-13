@@ -126,11 +126,17 @@ class PortfolioManager:
 
         try:
             # 取引所から残高を取得
-            balance_info = await exchange.fetch_balance()
-            exchange_balance = float(balance_info.get("total", {}).get("USDT", 0.0))
+            balance_info = await exchange.get_balance()
+            if isinstance(balance_info, dict) and "USDT" in balance_info:
+                usdt_info = balance_info["USDT"]
+                exchange_balance = float(usdt_info.get("total", 0.0) if isinstance(usdt_info, dict) else 0.0)
+            elif isinstance(balance_info, dict) and "total" in balance_info:
+                exchange_balance = float(balance_info["total"].get("USDT", 0.0))
+            else:
+                exchange_balance = 0.0
 
             # 取引所からオープンポジションを取得
-            exchange_positions = await exchange.fetch_positions()
+            exchange_positions = await exchange.get_open_orders() if hasattr(exchange, "get_open_orders") else []
 
             # 残高の乖離チェック
             balance_diff = abs(self._balance - exchange_balance)

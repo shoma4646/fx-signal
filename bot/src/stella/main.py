@@ -12,7 +12,17 @@ import signal
 import sys
 from pathlib import Path
 
+import logging
+
 import structlog
+
+# structlogのログレベルマッピング
+_LOG_LEVEL_MAP: dict[str, int] = {
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO,
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR,
+}
 
 
 def setup_logging(log_level: str = "INFO") -> None:
@@ -21,6 +31,8 @@ def setup_logging(log_level: str = "INFO") -> None:
     Args:
         log_level: ログレベル ("DEBUG", "INFO", "WARNING", "ERROR")
     """
+    level = _LOG_LEVEL_MAP.get(log_level, logging.INFO)
+
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
@@ -30,9 +42,7 @@ def setup_logging(log_level: str = "INFO") -> None:
             structlog.processors.TimeStamper(fmt="iso"),
             structlog.dev.ConsoleRenderer(),
         ],
-        wrapper_class=structlog.make_filtering_bound_logger(
-            getattr(structlog, log_level, structlog.INFO) if hasattr(structlog, log_level) else structlog.INFO
-        ),
+        wrapper_class=structlog.make_filtering_bound_logger(level),
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=True,
