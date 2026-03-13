@@ -67,28 +67,44 @@ class TradingEngine:
 
         # 取引所クライアントの初期化
         try:
-            from stella.exchange.bybit import BybitExchange
-
             exchange_config = getattr(self._config, "exchange", None)
             if isinstance(exchange_config, dict):
                 api_key = exchange_config.get("api_key", "")
                 api_secret = exchange_config.get("api_secret", "")
-                testnet = exchange_config.get("testnet", True)
+                exchange_name = exchange_config.get("name", "bitbank")
             else:
                 api_key = getattr(exchange_config, "api_key", "")
                 api_secret = getattr(exchange_config, "api_secret", "")
-                testnet = getattr(exchange_config, "testnet", True)
+                exchange_name = getattr(exchange_config, "name", "bitbank")
 
             is_paper = getattr(self._config, "mode", "paper") == "paper"
-            self._exchange = BybitExchange(
-                api_key=api_key,
-                api_secret=api_secret,
-                testnet=testnet,
-                paper=is_paper,
-            )
+
+            if exchange_name == "bitbank":
+                from stella.exchange.bitbank import BitbankExchange
+
+                self._exchange = BitbankExchange(
+                    api_key=api_key,
+                    api_secret=api_secret,
+                    paper=is_paper,
+                )
+            else:
+                from stella.exchange.bybit import BybitExchange
+
+                testnet = (
+                    exchange_config.get("testnet", True)
+                    if isinstance(exchange_config, dict)
+                    else getattr(exchange_config, "testnet", True)
+                )
+                self._exchange = BybitExchange(
+                    api_key=api_key,
+                    api_secret=api_secret,
+                    testnet=testnet,
+                    paper=is_paper,
+                )
+
             if hasattr(self._exchange, "initialize"):
                 await self._exchange.initialize()
-            logger.info("取引所クライアントを初期化しました", paper=is_paper)
+            logger.info("取引所クライアントを初期化しました", exchange=exchange_name, paper=is_paper)
         except ImportError:
             logger.warning("取引所モジュールが見つかりません。モックモードで動作します。")
             self._exchange = None

@@ -21,9 +21,10 @@ logger = structlog.get_logger()
 class ExchangeConfig(BaseModel):
     """取引所接続設定"""
 
-    api_key: str = Field(description="取引所APIキー")
-    api_secret: str = Field(description="取引所APIシークレット")
-    testnet: bool = Field(default=False, description="テストネットモードの有効化")
+    name: str = Field(default="bitbank", description="取引所名 (bitbank / bybit)")
+    api_key: str = Field(default="", description="取引所APIキー")
+    api_secret: str = Field(default="", description="取引所APIシークレット")
+    testnet: bool = Field(default=False, description="テストネットモードの有効化 (Bybitのみ)")
 
 
 class StrategyConfig(BaseModel):

@@ -18,7 +18,8 @@ stella-trader/
 │   │   │   └── safety.py        # 安全機構（キルスイッチ、損失制限）
 │   │   ├── exchange/
 │   │   │   ├── base.py          # 取引所抽象基底クラス
-│   │   │   └── bybit.py         # Bybit実装（ccxt経由）
+│   │   │   ├── bitbank.py       # bitbank実装（ccxt経由、メイン）
+│   │   │   └── bybit.py         # Bybit実装（ccxt経由、予備）
 │   │   ├── strategies/
 │   │   │   ├── base.py          # 戦略基底クラス（Signal, BaseStrategy）
 │   │   │   └── trend.py         # トレンドフォロー（EMAクロス + ADX）
@@ -43,7 +44,7 @@ stella-trader/
 
 - **ボット**: Python 3.12+, ccxt, pandas-ta, pydantic, FastAPI, structlog
 - **ダッシュボード**: Next.js 15, Recharts, Tailwind CSS
-- **取引所**: Bybit（テストネット/ペーパートレード対応）
+- **取引所**: bitbank（メイン、JPY建て）、Bybit（予備）
 - **バージョン管理**: mise（Python 3.12 + Node 20）
 
 ## 開発ルール
@@ -66,13 +67,13 @@ stella-trader/
 
 ```bash
 # ペーパートレード（推奨: まずこちらで検証）
-cd bot && uv run stella --mode paper
+cd bot && uv run python -m stella.main paper
 
 # バックテスト
-cd bot && uv run stella --mode backtest
+cd bot && uv run python -m stella.main backtest
 
 # 本番（十分なテスト後のみ）
-cd bot && uv run stella --mode live
+cd bot && uv run python -m stella.main live
 ```
 
 ### テスト
@@ -91,7 +92,7 @@ cd bot && uv run pytest
 ## v1からの主な変更点
 
 - JavaScript → Python（バックテスト基盤・指標ライブラリの豊富さ）
-- BitFlyer → Bybit（API品質・手数料・流動性）
+- BitFlyer → bitbank（Maker手数料-0.02%、板取引の流動性が国内トップクラス）
 - 戦略ごとの個別ポジション管理 → ポートフォリオレベルの統合管理
 - バックテスト基盤なし → vectorbt連携のバックテストパイプライン
 - 固定値の安全閾値 → ATRベースの動的リスク管理

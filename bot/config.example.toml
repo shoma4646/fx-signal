@@ -13,18 +13,21 @@ check_interval_sec = 60
 
 # --- 取引所設定 ---
 [exchange]
+# 取引所名: "bitbank" (推奨) / "bybit"
+name = "bitbank"
 # APIキーとシークレットは.envファイルでの設定を推奨:
 #   STELLA_EXCHANGE__API_KEY=your_api_key
 #   STELLA_EXCHANGE__API_SECRET=your_api_secret
 api_key = ""
 api_secret = ""
-# テストネットモード (本番運用時はfalseに変更)
-testnet = true
+# テストネットモード (Bybitのみ有効。bitbankにはテストネットなし)
+testnet = false
 
 # --- 戦略設定 ---
 [[strategies]]
 name = "trend_follow"
-pairs = ["BTC/USDT"]
+# bitbankはJPY建てペア
+pairs = ["BTC/JPY"]
 
 [strategies.params]
 ema_short = 9
@@ -54,5 +57,5 @@ volatility_pause_atr_multiplier = 3.0
 # Discord WebhookのURL (.envファイルでの設定を推奨)
 #   STELLA_NOTIFY__DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 discord_webhook_url = ""
-# 日次レポートの送信時刻(時、UTC)
+# 日次レポートの送信時刻(時、JST)
 daily_report_hour = 9
