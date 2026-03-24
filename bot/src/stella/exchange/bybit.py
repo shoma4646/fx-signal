@@ -275,6 +275,27 @@ class BybitExchange(BaseExchange):
             "timestamp": int(time.time() * 1000),
             "paper": True,
         }
+        # ペーパー残高を更新
+        if status == "closed" and price is not None:
+            order_cost = price * amount
+            usdt_balance = self._paper_balance.get("USDT", {})
+
+            if side == "buy":
+                if usdt_balance.get("free", 0.0) < order_cost:
+                    logger.warning(
+                        "ペーパー残高不足",
+                        required=order_cost,
+                        available=usdt_balance.get("free", 0.0),
+                    )
+                    return {"id": order_id, "status": "rejected", "reason": "insufficient_balance"}
+                usdt_balance["free"] = usdt_balance.get("free", 0.0) - order_cost
+                usdt_balance["total"] = usdt_balance.get("total", 0.0) - order_cost
+            elif side == "sell":
+                usdt_balance["free"] = usdt_balance.get("free", 0.0) + order_cost
+                usdt_balance["total"] = usdt_balance.get("total", 0.0) + order_cost
+
+            self._paper_balance["USDT"] = usdt_balance
+
         self._paper_orders.append(order)
         logger.info(
             "ペーパートレード注文を作成しました",
@@ -282,6 +303,7 @@ class BybitExchange(BaseExchange):
             symbol=symbol,
             side=side,
             amount=amount,
+            paper_balance=self._paper_balance.get("USDT", {}).get("total", 0.0),
         )
         return order
 

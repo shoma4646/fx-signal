@@ -321,29 +321,28 @@ class TestCooldown:
 class TestTrailingStopLogic:
     """トレーリングストップロジックのテスト。"""
 
-    def test_trailing_stop_triggered(self, trend_strategy: TrendStrategy) -> None:
-        """利益がトレーリング発動条件を満たした場合に売りシグナルが生成されること。"""
-        # ポジションオブジェクトをモック
+    def test_trailing_stop_not_triggered_when_profit_insufficient(
+        self, trend_strategy: TrendStrategy
+    ) -> None:
+        """利益がトレーリング発動条件に達していない場合にシグナルが出ないこと。"""
         position = MagicMock()
         position.entry_price = 100.0
         position.stop_loss = 90.0
-        position.highest_price = 120.0  # 最高値
+        position.stop_loss_price = 90.0
+        position.highest_price = 105.0
+        position.take_profit = None
 
-        # ATR=5, trailing_atr_mult=3.0 -> トレーリング発動条件: 利益 >= 15
-        # current_close=110, entry=100 -> 利益=10で発動条件未達
-        # current_close=116, entry=100 -> 利益=16で発動条件到達
-        # trailing_stop_atr_mult=1.5 -> trailing_stop = 120 - 5*1.5 = 112.5
-        # current_close=110 < 112.5 -> トレーリングストップ発動
+        # ATR=5, trailing_atr_mult=1.5 -> トレーリング発動条件: 利益 >= 7.5
+        # current_close=105, entry=100 -> 利益=5 < 7.5 -> 発動条件未達
         signals = trend_strategy._check_exit_conditions(
             symbol="BTC/USDT",
             position=position,
-            current_close=110.0,
+            current_close=105.0,
             current_atr=5.0,
-            current_ema_short=108.0,
-            current_ema_long=109.0,
+            current_ema_short=104.0,
+            current_ema_long=103.0,
         )
 
-        # 利益がトレーリング発動条件(5*3=15)に達していない(10<15)のでシグナルなし
         sell_signals = [s for s in signals if s.action == "sell"]
         assert len(sell_signals) == 0
 
@@ -354,15 +353,18 @@ class TestTrailingStopLogic:
         position = MagicMock()
         position.entry_price = 100.0
         position.stop_loss = 90.0
-        position.highest_price = 125.0
+        position.stop_loss_price = 90.0
+        position.highest_price = 115.0
+        position.take_profit = None
 
-        # current_close=116, entry=100 -> 利益=16 >= 15(ATR5*3) -> 条件到達
-        # trailing_stop = 125 - 5*1.5 = 117.5
-        # current_close=116 < 117.5 -> 発動
+        # ATR=5, trailing_atr_mult=1.5 -> トレーリング発動条件: 利益 >= 7.5
+        # current_close=109, entry=100 -> 利益=9 >= 7.5 -> 条件到達
+        # trailing_stop_atr_mult=1.0 -> trailing_stop = 115 - 5*1.0 = 110
+        # current_close=109 < 110 -> 発動
         signals = trend_strategy._check_exit_conditions(
             symbol="BTC/USDT",
             position=position,
-            current_close=116.0,
+            current_close=109.0,
             current_atr=5.0,
             current_ema_short=108.0,
             current_ema_long=109.0,
@@ -377,7 +379,9 @@ class TestTrailingStopLogic:
         position = MagicMock()
         position.entry_price = 100.0
         position.stop_loss = 95.0
+        position.stop_loss_price = 95.0
         position.highest_price = 100.0
+        position.take_profit = None
 
         # current_close=94 <= stop_loss=95 -> ストップロス発動
         signals = trend_strategy._check_exit_conditions(

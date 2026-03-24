@@ -127,13 +127,15 @@ class PortfolioManager:
         try:
             # 取引所から残高を取得
             balance_info = await exchange.get_balance()
-            if isinstance(balance_info, dict) and "USDT" in balance_info:
-                usdt_info = balance_info["USDT"]
-                exchange_balance = float(usdt_info.get("total", 0.0) if isinstance(usdt_info, dict) else 0.0)
-            elif isinstance(balance_info, dict) and "total" in balance_info:
-                exchange_balance = float(balance_info["total"].get("USDT", 0.0))
+
+            # 取引所名から基軸通貨を判定
+            exchange_name = getattr(exchange, "name", "").lower()
+            if "bitbank" in exchange_name:
+                quote_currency = "JPY"
             else:
-                exchange_balance = 0.0
+                quote_currency = "USDT"
+
+            exchange_balance = self._extract_balance(balance_info, quote_currency)
 
             # 取引所からオープンポジションを取得
             exchange_positions = await exchange.get_open_orders() if hasattr(exchange, "get_open_orders") else []
@@ -350,6 +352,28 @@ class PortfolioManager:
             new_stop=new_stop,
         )
 
+    def get_position(self, symbol: str) -> Position | None:
+        """指定シンボルのオープンポジションを取得する。
+
+        Args:
+            symbol: 取引ペア(例: "BTC/JPY")
+
+        Returns:
+            該当するPositionオブジェクト。存在しない場合はNone。
+        """
+        for p in self._positions.values():
+            if p.symbol == symbol and p.is_open:
+                return p
+        return None
+
+    def get_open_positions(self) -> list[Position]:
+        """全オープンポジションをリストで返す。
+
+        Returns:
+            オープンポジションのリスト
+        """
+        return [p for p in self._positions.values() if p.is_open]
+
     def get_positions(self, strategy_name: str | None = None) -> list[Position]:
         """オープンポジション一覧を取得する。
 
@@ -548,3 +572,37 @@ class PortfolioManager:
         """日次カウンターをリセットする。日付変更時に呼び出す。"""
         self._daily_start_balance = self._balance
         self._log.info("日次カウンターをリセット", balance=self._balance)
+
+    @staticmethod
+    def _extract_balance(balance_info: Any, currency: str) -> float:
+        """取引所の残高レスポンスから指定通貨の残高を抽出する。
+
+        ccxtの残高レスポンス形式に対応:
+        - {"JPY": {"total": 1000000}} (通貨キー直下)
+        - {"total": {"JPY": 1000000}} (totalキー配下)
+        - {"JPY": 1000000} (単純な値)
+
+        Args:
+            balance_info: 取引所APIのレスポンス
+            currency: 基軸通貨 ("JPY" or "USDT")
+
+        Returns:
+            残高。取得できない場合は0.0。
+        """
+        if not isinstance(balance_info, dict):
+            return 0.0
+
+        # パターン1: {"JPY": {"total": ...}}
+        if currency in balance_info:
+            info = balance_info[currency]
+            if isinstance(info, dict):
+                return float(info.get("total", info.get("free", 0.0)))
+            return float(info)
+
+        # パターン2: {"total": {"JPY": ...}}
+        if "total" in balance_info:
+            total = balance_info["total"]
+            if isinstance(total, dict) and currency in total:
+                return float(total[currency])
+
+        return 0.0

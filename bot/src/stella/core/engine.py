@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import traceback
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -158,12 +159,21 @@ class TradingEngine:
                     logger.warning("未知の戦略タイプです", strategy_name=strategy_name)
 
         # Discord通知の初期化
-        discord_webhook = getattr(self._config, "discord_webhook_url", None)
+        notify_config = getattr(self._config, "notify", None)
+        discord_webhook = (
+            getattr(notify_config, "discord_webhook_url", None)
+            if notify_config is not None
+            else None
+        ) or getattr(self._config, "discord_webhook_url", None)
         if discord_webhook:
             self._notifier = DiscordNotifier(discord_webhook)
             logger.info("Discord通知を有効化しました")
         else:
             logger.info("Discord通知は無効です (webhook_urlが未設定)")
+
+        # ポートフォリオ・安全機構の状態を復元
+        self._state_dir = Path(getattr(self._config, "state_dir", ".state"))
+        self._load_state()
 
         logger.info(
             "エンジンの初期化が完了しました",
@@ -226,8 +236,11 @@ class TradingEngine:
         # 2. ポートフォリオの同期
         await self._sync_portfolio()
 
-        # 3. 安全チェック
-        if not self._check_safety():
+        # 3. 日次リセットチェック
+        self._check_daily_reset()
+
+        # 4. 安全チェック（ボラティリティ含む）
+        if not self._check_safety(ohlcv_data):
             return
 
         # 4-6. 各戦略でシグナルを生成・検証・実行
@@ -241,7 +254,7 @@ class TradingEngine:
                     for signal in signals:
                         if signal.action == "hold":
                             continue
-                        await self.execute_signal(signal, strategy)
+                        await self.execute_signal(signal, strategy, ohlcv_df=df)
                 except Exception as e:
                     logger.error(
                         "戦略の実行中にエラーが発生しました",
@@ -256,7 +269,9 @@ class TradingEngine:
 
         logger.debug("トレーディングサイクルが完了しました")
 
-    async def execute_signal(self, signal: Signal, strategy: BaseStrategy) -> None:
+    async def execute_signal(
+        self, signal: Signal, strategy: BaseStrategy, ohlcv_df: Any = None
+    ) -> None:
         """単一のシグナルを実行する。
 
         ポートフォリオマネージャーで検証後、取引所に注文を送信する。
@@ -264,6 +279,7 @@ class TradingEngine:
         Args:
             signal: 実行するトレーディングシグナル
             strategy: シグナルを生成した戦略
+            ohlcv_df: OHLCVデータ（ATR計算用）
         """
         logger.info(
             "シグナルを受信しました",
@@ -273,72 +289,89 @@ class TradingEngine:
             reason=signal.reason,
         )
 
-        # ポートフォリオマネージャーによる検証
-        if hasattr(self._portfolio, "validate_signal"):
-            is_valid = self._portfolio.validate_signal(signal)
-            if not is_valid:
-                logger.info(
-                    "シグナルがポートフォリオバリデーションで却下されました",
-                    symbol=signal.symbol,
-                    action=signal.action,
-                )
-                return
-
-        # ポジションサイズの計算
-        balance = getattr(self._portfolio, "available_balance", 0.0)
-        if callable(balance):
-            balance = balance()
-
-        # ATRの取得 (簡易的にデフォルト値を使用)
-        atr = getattr(self._portfolio, "get_current_atr", lambda s: 0.0)(signal.symbol)
+        # ATRをOHLCVデータから直接計算
+        atr = self._calculate_atr_from_ohlcv(ohlcv_df) if ohlcv_df is not None else 0.0
         if atr <= 0:
-            logger.warning("ATR値が取得できません。デフォルト値を使用します。", symbol=signal.symbol)
+            logger.warning("ATR値が計算できません。デフォルト値を使用します。", symbol=signal.symbol)
             atr = 1.0
 
-        quantity = strategy.get_position_size(signal, balance, atr)
-        if quantity <= 0:
-            logger.info("ポジションサイズが0のためスキップします", symbol=signal.symbol)
+        balance = self._portfolio._balance
+
+        # 買いシグナルの場合: ポジションサイズ計算と注文前バリデーション
+        if signal.action == "buy":
+            quantity = strategy.get_position_size(signal, balance, atr)
+            if quantity <= 0:
+                logger.info("ポジションサイズが0のためスキップします", symbol=signal.symbol)
+                return
+
+            # 概算価格でバリデーション
+            price_estimate = ohlcv_df["close"].iloc[-1] if ohlcv_df is not None else 0.0
+            is_valid, reason = self._portfolio.validate_order(
+                symbol=signal.symbol,
+                side="buy",
+                quantity=quantity,
+                price=price_estimate,
+            )
+            if not is_valid:
+                logger.info("注文バリデーションで却下されました", reason=reason)
+                return
+
+        elif signal.action == "sell":
+            # 売りの場合: 既存ポジションの数量を使用
+            position = self._portfolio.get_position(signal.symbol)
+            if position is None:
+                logger.info("売却対象のポジションがありません", symbol=signal.symbol)
+                return
+            quantity = position.quantity
+        else:
             return
 
         # 注文の実行
         try:
             if self._exchange is not None:
-                if signal.action in ("buy", "sell"):
-                    order = await self._exchange.create_order(
-                        symbol=signal.symbol,
-                        order_type="market",
-                        side=signal.action,
-                        amount=quantity,
-                    )
-                else:
-                    return
+                order = await self._exchange.create_order(
+                    symbol=signal.symbol,
+                    order_type="market",
+                    side=signal.action,
+                    amount=quantity,
+                )
+
+                price = float(order.get("average", order.get("price", 0))) if isinstance(order, dict) else 0.0
 
                 logger.info(
                     "注文を実行しました",
                     action=signal.action,
                     symbol=signal.symbol,
                     quantity=quantity,
-                    order=order,
+                    price=price,
                 )
 
                 # ポートフォリオを更新
-                if hasattr(self._portfolio, "record_trade"):
-                    price = order.get("price", 0) if isinstance(order, dict) else 0
-                    self._portfolio.record_trade(
+                if signal.action == "buy":
+                    self._portfolio.open_position(
                         symbol=signal.symbol,
-                        action=signal.action,
-                        price=price,
+                        side="buy",
+                        entry_price=price,
                         quantity=quantity,
-                        stop_loss=signal.stop_loss,
+                        strategy_name=strategy.name,
+                        stop_loss_price=signal.stop_loss,
                     )
+                elif signal.action == "sell":
+                    position = self._portfolio.get_position(signal.symbol)
+                    if position is not None:
+                        closed = self._portfolio.close_position(position.position_id, price)
+                        # 安全機構にトレード結果を記録
+                        if self._safety:
+                            self._safety.record_trade(closed.realized_pnl)
 
                 # 戦略にトレード記録
                 strategy.record_trade()
 
                 # 通知
                 if self._notifier:
-                    price = order.get("price", 0) if isinstance(order, dict) else 0
-                    pnl = order.get("pnl") if isinstance(order, dict) else None
+                    pnl = None
+                    if signal.action == "sell" and isinstance(order, dict):
+                        pnl = order.get("pnl")
                     await self._notifier.notify_trade(
                         action=signal.action,
                         symbol=signal.symbol,
@@ -361,13 +394,46 @@ class TradingEngine:
             if self._notifier:
                 await self._notifier.notify_error(error_msg)
 
+    @staticmethod
+    def _calculate_atr_from_ohlcv(df: Any, period: int = 14) -> float:
+        """OHLCVデータからATRを計算する。
+
+        Args:
+            df: OHLCVデータを含むDataFrame
+            period: ATR期間
+
+        Returns:
+            ATR値。計算不能な場合は0.0。
+        """
+        import pandas as pd
+
+        if df is None or len(df) < 2:
+            return 0.0
+
+        high = df["high"]
+        low = df["low"]
+        close = df["close"]
+
+        tr1 = high - low
+        tr2 = (high - close.shift(1)).abs()
+        tr3 = (low - close.shift(1)).abs()
+        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+
+        atr = tr.ewm(span=min(period, len(df)), adjust=False).mean()
+
+        last_atr = atr.iloc[-1]
+        return float(last_atr) if not pd.isna(last_atr) else 0.0
+
     async def shutdown(self) -> None:
         """エンジンを安全に停止する。
 
-        実行中のループを停止し、リソースを解放する。
+        実行中のループを停止し、状態を永続化してリソースを解放する。
         """
         logger.info("エンジンのシャットダウンを開始します")
         self._running = False
+
+        # 状態を永続化
+        self._save_state()
 
         if self._notifier:
             await self._notifier.send("トレーディングエンジンを停止します", level="warning")
@@ -377,6 +443,34 @@ class TradingEngine:
             await self._exchange.close()
 
         logger.info("エンジンのシャットダウンが完了しました")
+
+    def _save_state(self) -> None:
+        """ポートフォリオと安全機構の状態を永続化する。"""
+        if not hasattr(self, "_state_dir"):
+            return
+        try:
+            if self._portfolio:
+                self._portfolio.save_state(self._state_dir / "portfolio.json")
+            if self._safety:
+                self._safety.save_state(self._state_dir / "safety.json")
+            logger.info("状態を保存しました", path=str(self._state_dir))
+        except Exception as e:
+            logger.error("状態の保存に失敗しました", error=str(e))
+
+    def _load_state(self) -> None:
+        """ポートフォリオと安全機構の状態を復元する。"""
+        try:
+            portfolio_path = self._state_dir / "portfolio.json"
+            if portfolio_path.exists() and self._portfolio:
+                self._portfolio.load_state(portfolio_path)
+                logger.info("ポートフォリオ状態を復元しました")
+
+            safety_path = self._state_dir / "safety.json"
+            if safety_path.exists() and self._safety:
+                self._safety.load_state(safety_path)
+                logger.info("安全機構の状態を復元しました")
+        except Exception as e:
+            logger.warning("状態の復元に失敗しました（初回起動の場合は正常）", error=str(e))
 
     async def _fetch_ohlcv_data(self) -> dict[str, Any]:
         """全ペアのOHLCVデータを取得する。
@@ -425,8 +519,11 @@ class TradingEngine:
             except Exception as e:
                 logger.error("ポートフォリオ同期に失敗しました", error=str(e))
 
-    def _check_safety(self) -> bool:
+    def _check_safety(self, ohlcv_data: dict[str, Any] | None = None) -> bool:
         """安全チェックを実行する。
+
+        Args:
+            ohlcv_data: OHLCVデータ（ボラティリティチェック用）
 
         Returns:
             安全ならTrue、取引停止が必要ならFalse
@@ -434,18 +531,47 @@ class TradingEngine:
         if not self._safety:
             return True
 
-        if hasattr(self._safety, "is_kill_switch_active"):
-            if self._safety.is_kill_switch_active():
-                logger.warning("キルスイッチが有効です。取引を停止します。")
-                return False
+        # ボラティリティチェック（OHLCVデータがある場合）
+        if ohlcv_data:
+            for symbol, df in ohlcv_data.items():
+                atr = self._calculate_atr_from_ohlcv(df)
+                if atr > 0 and len(df) > 30:
+                    # 長期平均ATRを計算
+                    import pandas as pd
 
-        if hasattr(self._safety, "check_safety"):
-            is_safe = self._safety.check_safety(self._portfolio)
-            if not is_safe:
-                logger.warning("安全チェックに失敗しました。取引を停止します。")
-                return False
+                    high = df["high"]
+                    low = df["low"]
+                    close = df["close"]
+                    tr1 = high - low
+                    tr2 = (high - close.shift(1)).abs()
+                    tr3 = (low - close.shift(1)).abs()
+                    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+                    avg_atr = float(tr.mean())
+
+                    if avg_atr > 0:
+                        self._safety.check_volatility(atr, avg_atr)
+
+        can_trade, reason = self._safety.can_trade()
+        if not can_trade:
+            logger.warning("安全チェックにより取引停止", reason=reason)
+            return False
 
         return True
+
+    def _check_daily_reset(self) -> None:
+        """日付が変わった場合に日次カウンターをリセットする。"""
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        last_reset = getattr(self, "_last_daily_reset", None)
+
+        if last_reset is None or last_reset.date() < now.date():
+            if self._portfolio:
+                self._portfolio.reset_daily()
+            if self._safety:
+                self._safety.reset_daily()
+            self._last_daily_reset = now
+            logger.info("日次カウンターをリセットしました")
 
     async def _update_trailing_stops(self, ohlcv_data: dict[str, Any]) -> None:
         """既存ポジションのトレーリングストップを更新する。
@@ -453,7 +579,7 @@ class TradingEngine:
         Args:
             ohlcv_data: シンボルをキーとするDataFrameの辞書
         """
-        if not self._portfolio or not hasattr(self._portfolio, "get_open_positions"):
+        if not self._portfolio:
             return
 
         positions = self._portfolio.get_open_positions()
@@ -461,14 +587,20 @@ class TradingEngine:
             return
 
         for position in positions:
-            symbol = getattr(position, "symbol", None)
-            if symbol and symbol in ohlcv_data:
+            symbol = position.symbol
+            if symbol in ohlcv_data:
                 df = ohlcv_data[symbol]
-                current_price = df["close"].iloc[-1]
-                if hasattr(position, "update_highest_price"):
-                    position.update_highest_price(current_price)
-                    logger.debug(
-                        "トレーリングストップを更新しました",
-                        symbol=symbol,
-                        current_price=current_price,
-                    )
+                current_price = float(df["close"].iloc[-1])
+
+                # 未実現損益を更新
+                if position.side == "buy":
+                    position.unrealized_pnl = (current_price - position.entry_price) * position.quantity
+                else:
+                    position.unrealized_pnl = (position.entry_price - current_price) * position.quantity
+
+                logger.debug(
+                    "ポジション情報を更新しました",
+                    symbol=symbol,
+                    current_price=current_price,
+                    unrealized_pnl=round(position.unrealized_pnl, 2),
+                )

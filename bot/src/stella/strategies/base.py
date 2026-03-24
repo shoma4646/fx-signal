@@ -77,7 +77,7 @@ class BaseStrategy(ABC):
         self._is_active = True
         self._last_trade_time: float = 0.0
         self._cooldown_seconds: float = config.get("cooldown_minutes", 60) * 60
-        self._trade_history: list[float] = field(default_factory=list) if False else []
+        self._trade_history: list[float] = []
         logger.info("戦略を初期化しました", strategy=name, config=config)
 
     @property

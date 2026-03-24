@@ -27,8 +27,9 @@ DEFAULT_ADX_PERIOD = 14
 DEFAULT_ADX_THRESHOLD = 25.0
 DEFAULT_ATR_PERIOD = 14
 DEFAULT_STOP_LOSS_ATR_MULT = 2.0
-DEFAULT_TRAILING_ATR_MULT = 3.0
-DEFAULT_TRAILING_STOP_ATR_MULT = 1.5
+DEFAULT_TRAILING_ATR_MULT = 1.5
+DEFAULT_TRAILING_STOP_ATR_MULT = 1.0
+DEFAULT_TAKE_PROFIT_ATR_MULT = 4.0
 DEFAULT_COOLDOWN_MINUTES = 60
 DEFAULT_RISK_PCT = 0.02
 DEFAULT_VOLUME_MULT = 1.5
@@ -86,6 +87,9 @@ class TrendStrategy(BaseStrategy):
         self.trailing_stop_atr_mult: float = config.get(
             "trailing_stop_atr_mult", DEFAULT_TRAILING_STOP_ATR_MULT
         )
+        self.take_profit_atr_mult: float = config.get(
+            "take_profit_atr_mult", DEFAULT_TAKE_PROFIT_ATR_MULT
+        )
         self.risk_pct: float = config.get("risk_pct", DEFAULT_RISK_PCT)
         self.volume_mult: float = config.get("volume_mult", DEFAULT_VOLUME_MULT)
 
@@ -115,45 +119,57 @@ class TrendStrategy(BaseStrategy):
     def _calculate_adx(self, df: pd.DataFrame) -> pd.Series:
         """ADX(Average Directional Index)を計算する。
 
+        pandas-taを使用して標準的なWilder's smoothingベースのADXを算出する。
+        pandas-taが利用できない場合はフォールバック実装を使用する。
+
         Args:
             df: OHLCVデータを含むDataFrame
 
         Returns:
             ADX値のSeries
         """
+        try:
+            import pandas_ta as ta
+
+            adx_df = ta.adx(df["high"], df["low"], df["close"], length=self.adx_period)
+            if adx_df is not None:
+                adx_col = f"ADX_{self.adx_period}"
+                if adx_col in adx_df.columns:
+                    return adx_df[adx_col]
+        except ImportError:
+            pass
+
+        # フォールバック: 独自実装
         high = df["high"]
         low = df["low"]
         close = df["close"]
         period = self.adx_period
 
-        # True Range
         tr1 = high - low
         tr2 = (high - close.shift(1)).abs()
         tr3 = (low - close.shift(1)).abs()
         tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
 
-        # +DM / -DM
         up_move = high - high.shift(1)
         down_move = low.shift(1) - low
         plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
         minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
 
-        # Wilder's smoothing (EMA相当)
-        atr = pd.Series(tr, index=df.index).ewm(span=period, adjust=False).mean()
+        # Wilder's smoothing: alpha = 1/period
+        atr = pd.Series(tr, index=df.index).ewm(alpha=1.0 / period, adjust=False).mean()
         plus_di = (
             100
-            * pd.Series(plus_dm, index=df.index).ewm(span=period, adjust=False).mean()
-            / atr
+            * pd.Series(plus_dm, index=df.index).ewm(alpha=1.0 / period, adjust=False).mean()
+            / atr.replace(0, np.nan)
         )
         minus_di = (
             100
-            * pd.Series(minus_dm, index=df.index).ewm(span=period, adjust=False).mean()
-            / atr
+            * pd.Series(minus_dm, index=df.index).ewm(alpha=1.0 / period, adjust=False).mean()
+            / atr.replace(0, np.nan)
         )
 
-        # ADX
         dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan)
-        adx = dx.ewm(span=period, adjust=False).mean()
+        adx = dx.ewm(alpha=1.0 / period, adjust=False).mean()
 
         return adx
 
@@ -292,7 +308,7 @@ class TrendStrategy(BaseStrategy):
         )
 
         # 既存ポジションの確認
-        position = portfolio.get_position(symbol) if hasattr(portfolio, "get_position") else None
+        position = portfolio.get_position(symbol)
 
         # 既存ポジションがある場合: トレーリングストップ/ストップロス判定
         if position is not None:
@@ -306,6 +322,18 @@ class TrendStrategy(BaseStrategy):
                     current_ema_long=current_ema_long,
                 )
             )
+
+        # レンジ相場フィルター: ADX < 20 は完全にスキップ
+        if current_adx < 20.0:
+            logger.debug(
+                "レンジ相場のためスキップします",
+                symbol=symbol,
+                adx=round(current_adx, 2),
+            )
+            # 前回EMA値だけは更新する（次回クロス検出のため）
+            self._prev_ema_short[symbol] = current_ema_short
+            self._prev_ema_long[symbol] = current_ema_long
+            return signals
 
         # クロスオーバー検出
         crossover = self._detect_crossover(symbol, current_ema_short, current_ema_long)
@@ -344,6 +372,7 @@ class TrendStrategy(BaseStrategy):
         if crossover == "golden_cross":
             # 買いシグナル
             stop_loss = current_close - current_atr * self.stop_loss_atr_mult
+            take_profit = current_close + current_atr * self.take_profit_atr_mult
             signals.append(
                 Signal(
                     action="buy",
@@ -356,7 +385,7 @@ class TrendStrategy(BaseStrategy):
                         f"ADX={current_adx:.1f}"
                     ),
                     stop_loss=round(stop_loss, 4),
-                    take_profit=None,
+                    take_profit=round(take_profit, 4),
                 )
             )
 
@@ -412,8 +441,29 @@ class TrendStrategy(BaseStrategy):
         if entry_price is None:
             return signals
 
+        # テイクプロフィットチェック
+        take_profit = getattr(position, "take_profit", None)
+        if take_profit is not None and current_close >= take_profit:
+            logger.info(
+                "テイクプロフィットに到達しました",
+                symbol=symbol,
+                close=current_close,
+                take_profit=take_profit,
+            )
+            signals.append(
+                Signal(
+                    action="sell",
+                    symbol=symbol,
+                    strength=1.0,
+                    reason=f"テイクプロフィット発動: 現在価格{current_close:.4f} >= TP{take_profit:.4f}",
+                    stop_loss=None,
+                    take_profit=None,
+                )
+            )
+            return signals
+
         # ストップロスチェック
-        stop_loss = getattr(position, "stop_loss", None)
+        stop_loss = getattr(position, "stop_loss", None) or getattr(position, "stop_loss_price", None)
         if stop_loss is not None and current_close <= stop_loss:
             logger.info(
                 "ストップロスに到達しました",

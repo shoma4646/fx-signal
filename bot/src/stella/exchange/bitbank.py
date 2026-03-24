@@ -279,6 +279,29 @@ class BitbankExchange(BaseExchange):
             "timestamp": int(time.time() * 1000),
             "paper": True,
         }
+        # ペーパー残高を更新
+        if status == "closed" and price is not None:
+            order_cost = price * amount
+            jpy_balance = self._paper_balance.get("JPY", {})
+
+            if side == "buy":
+                # 買い: JPY残高を減算
+                if jpy_balance.get("free", 0.0) < order_cost:
+                    logger.warning(
+                        "ペーパー残高不足",
+                        required=order_cost,
+                        available=jpy_balance.get("free", 0.0),
+                    )
+                    return {"id": order_id, "status": "rejected", "reason": "insufficient_balance"}
+                jpy_balance["free"] = jpy_balance.get("free", 0.0) - order_cost
+                jpy_balance["total"] = jpy_balance.get("total", 0.0) - order_cost
+            elif side == "sell":
+                # 売り: JPY残高を加算
+                jpy_balance["free"] = jpy_balance.get("free", 0.0) + order_cost
+                jpy_balance["total"] = jpy_balance.get("total", 0.0) + order_cost
+
+            self._paper_balance["JPY"] = jpy_balance
+
         self._paper_orders.append(order)
         logger.info(
             "ペーパートレード注文を作成しました",
@@ -286,6 +309,7 @@ class BitbankExchange(BaseExchange):
             symbol=symbol,
             side=side,
             amount=amount,
+            paper_balance=self._paper_balance.get("JPY", {}).get("total", 0.0),
         )
         return order
 
