@@ -14,7 +14,7 @@ import structlog
 from fx_signal.config import Config
 from fx_signal.data import fetcher
 from fx_signal.notify import mac
-from fx_signal.signals import ema_rsi
+from fx_signal.signals import rsi_reversion
 
 logger = structlog.get_logger()
 
@@ -23,14 +23,12 @@ def _check_once(cfg: Config) -> None:
     """シグナルを1回チェックして通知する。"""
     logger.info("シグナルチェック開始", pair=cfg.signal.pair)
     df = fetcher.fetch_ohlcv(cfg.signal.pair, cfg.signal.interval, cfg.signal.lookback_days)
-    signal = ema_rsi.detect(df, cfg.signal)
+    signal = rsi_reversion.detect(df, cfg.signal)
 
     if signal:
-        label = "買い" if signal.direction.value == "BUY" else "売り"
-        title = f"FX Signal [{label}] {signal.pair}"
-        body = f"{signal.price:.3f} 円\n{signal.reason}"
-        logger.info("シグナル検出", direction=signal.direction, price=signal.price)
-        print(signal.to_line_message())
+        title, body = signal.to_notification()
+        logger.info("シグナル検出", direction=signal.direction, price=signal.price, tp=signal.tp, sl=signal.sl)
+        print(f"\n{title}\n{body}")
         mac.send(title, body)
     else:
         logger.info("シグナルなし", pair=cfg.signal.pair, latest_close=float(df["close"].iloc[-1]))

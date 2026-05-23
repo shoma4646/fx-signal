@@ -5,18 +5,20 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class SignalConfig(BaseSettings):
     pair: str = "USDJPY=X"
     interval: str = "1h"
-    lookback_days: int = 365          # A-1: 統計的信頼性のため1年分に延長
+    lookback_days: int = 365
 
-    ema_short: int = 5                # A-3: データ検証済み（旧9）
-    ema_long: int = 20                # A-3: データ検証済み（旧21）
+    # RSI逆張り戦略（バックテストで最良と判明）
     rsi_period: int = 14
-    rsi_buy_threshold: float = 55.0
-    rsi_sell_threshold: float = 45.0
-    adx_period: int = 14
-    adx_threshold: float = 20.0
+    rsi_oversold: float = 30.0        # 買いシグナル閾値
+    rsi_overbought: float = 70.0      # 売りシグナル閾値
 
-    spread_pips: float = 0.3          # A-4: スプレッドコスト（往復）
-    session_filter: bool = True       # A-2: 低ボラ時間帯フィルター
+    # ATRベースのTP/SL
+    atr_period: int = 14
+    sl_atr_mult: float = 1.5          # 損切り = ATR × 1.5
+    tp_atr_mult: float = 2.5          # 利確  = ATR × 2.5 (R:R = 1:1.67)
+
+    spread_pips: float = 0.3
+    session_filter: bool = True
 
 
 class SchedulerConfig(BaseSettings):
