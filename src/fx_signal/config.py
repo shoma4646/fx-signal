@@ -20,16 +20,9 @@ class SchedulerConfig(BaseSettings):
     interval_minutes: int = 60
 
 
-class LineConfig(BaseSettings):
-    token: str = ""
-
-    model_config = SettingsConfigDict(env_prefix="LINE_")
-
-
 class Config(BaseSettings):
     signal: SignalConfig = Field(default_factory=SignalConfig)
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
-    line: LineConfig = Field(default_factory=LineConfig)
 
     model_config = SettingsConfigDict(
         env_file=".env",

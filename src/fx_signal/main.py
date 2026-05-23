@@ -13,7 +13,7 @@ import structlog
 
 from fx_signal.config import Config
 from fx_signal.data import fetcher
-from fx_signal.notify import line
+from fx_signal.notify import mac
 from fx_signal.signals import ema_rsi
 
 logger = structlog.get_logger()
@@ -26,10 +26,12 @@ def _check_once(cfg: Config) -> None:
     signal = ema_rsi.detect(df, cfg.signal)
 
     if signal:
-        msg = signal.to_line_message()
+        label = "買い" if signal.direction.value == "BUY" else "売り"
+        title = f"FX Signal [{label}] {signal.pair}"
+        body = f"{signal.price:.3f} 円\n{signal.reason}"
         logger.info("シグナル検出", direction=signal.direction, price=signal.price)
-        print(msg)
-        line.send(cfg.line.token, msg)
+        print(signal.to_line_message())
+        mac.send(title, body)
     else:
         logger.info("シグナルなし", pair=cfg.signal.pair, latest_close=float(df["close"].iloc[-1]))
 
