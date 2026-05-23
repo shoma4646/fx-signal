@@ -9,8 +9,8 @@ class SignalConfig(BaseSettings):
 
     # RSI逆張り戦略（バックテストで最良と判明）
     rsi_period: int = 14
-    rsi_oversold: float = 30.0        # 買いシグナル閾値
-    rsi_overbought: float = 70.0      # 売りシグナル閾値
+    rsi_oversold: float = 25.0        # 買いシグナル閾値（25/75が2年BT最良）
+    rsi_overbought: float = 75.0      # 売りシグナル閾値
 
     # ATRベースのTP/SL
     atr_period: int = 14

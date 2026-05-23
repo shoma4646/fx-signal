@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 import pandas as pd
+import pandas_ta as ta
 import yfinance as yf
 
 
@@ -30,3 +31,17 @@ def fetch_ohlcv(pair: str, interval: str, lookback_days: int) -> pd.DataFrame:
     df.index = pd.to_datetime(df.index)
 
     return df
+
+
+def get_trend_direction(pair: str) -> str:
+    """4H足のEMA20でトレンド方向を返す（上昇/下降/横ばい）。"""
+    df = fetch_ohlcv(pair, "4h", 30)
+    ema = ta.ema(df["close"], length=20).dropna()
+    if len(ema) < 2:
+        return "横ばい"
+    slope = float(ema.iloc[-1]) - float(ema.iloc[-3])  # 直近3本の変化で判定
+    if slope > 0.05:
+        return "上昇トレンド"
+    elif slope < -0.05:
+        return "下降トレンド"
+    return "横ばい"

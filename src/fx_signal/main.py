@@ -13,6 +13,7 @@ import structlog
 
 from fx_signal.config import Config
 from fx_signal.data import fetcher
+from fx_signal.judgment import ai_filter
 from fx_signal.notify import mac
 from fx_signal.signals import rsi_reversion
 
@@ -26,10 +27,21 @@ def _check_once(cfg: Config) -> None:
     signal = rsi_reversion.detect(df, cfg.signal)
 
     if signal:
-        title, body = signal.to_notification()
-        logger.info("シグナル検出", direction=signal.direction, price=signal.price, tp=signal.tp, sl=signal.sl)
-        print(f"\n{title}\n{body}")
-        mac.send(title, body)
+        logger.info("シグナル検出", direction=signal.direction, price=signal.price)
+
+        # 4Hトレンド取得 → AI総合判断
+        trend = fetcher.get_trend_direction(cfg.signal.pair)
+        logger.info("4Hトレンド確認", trend=trend)
+        go, ai_reason = ai_filter.judge(signal, trend)
+
+        if go:
+            title, body = signal.to_notification()
+            body += f"\nAI判断: {ai_reason}"
+            print(f"\n{title}\n{body}")
+            mac.send(title, body)
+        else:
+            logger.info("AIがシグナルを却下", reason=ai_reason)
+            print(f"\n[スキップ] {signal.direction.value} @ {signal.price:.3f} → {ai_reason}")
     else:
         logger.info("シグナルなし", pair=cfg.signal.pair, latest_close=float(df["close"].iloc[-1]))
 
