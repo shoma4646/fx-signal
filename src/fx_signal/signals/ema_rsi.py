@@ -1,4 +1,5 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pandas_ta as ta
@@ -6,11 +7,22 @@ import pandas_ta as ta
 from fx_signal.config import SignalConfig
 from fx_signal.signals.base import Direction, Signal
 
+_JST = ZoneInfo("Asia/Tokyo")
+# ボラティリティ分析で特定した低流動性時間帯（JST）
+_DEAD_HOURS = frozenset({5, 6, 7, 8})
+
+
+def _in_dead_zone(ts: datetime) -> bool:
+    """バーのタイムスタンプが低ボラ時間帯（JST 5-8時）かどうかを返す。"""
+    ts_jst = ts.astimezone(_JST) if ts.tzinfo else ts
+    return ts_jst.hour in _DEAD_HOURS
+
 
 def detect(df: pd.DataFrame, cfg: SignalConfig) -> Signal | None:
     """EMAクロス + RSIフィルター + ADXトレンド確認でシグナルを検出する。
 
     直近2本のバーを使ってクロスを判定する。
+    セッションフィルターが有効な場合、低ボラ時間帯（JST 5-8時）は除外する。
     """
     df = df.copy()
     df["ema_short"] = ta.ema(df["close"], length=cfg.ema_short)
@@ -32,6 +44,9 @@ def detect(df: pd.DataFrame, cfg: SignalConfig) -> Signal | None:
     curr = df.iloc[-1]
     price = float(curr["close"])
     ts = curr.name.to_pydatetime() if hasattr(curr.name, "to_pydatetime") else datetime.now()
+
+    if cfg.session_filter and _in_dead_zone(ts):
+        return None
 
     adx_ok = float(curr["adx"]) >= cfg.adx_threshold if not pd.isna(curr["adx"]) else True
 
